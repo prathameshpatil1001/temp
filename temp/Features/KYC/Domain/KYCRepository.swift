@@ -1,23 +1,15 @@
 // KYCRepository.swift
 // lms_borrower/Auth
 //
-// High-level abstraction for KYC and borrower onboarding flows.
+// High-level abstraction for KYC verification flows.
 //
 // IMPORTANT – required backend call order:
-//   1. CompleteBorrowerOnboarding (onboarding.v1) — creates the borrower_profiles row.
-//      This MUST succeed before any KYC RPC will work. The backend's requireBorrowerContext
-//      returns codes.NotFound ("borrower profile not found") if this row is missing.
-//
-//   2. RecordUserConsent (Aadhaar)
-//   3. InitiateAadhaarKyc  → returns reference_id
-//   4. VerifyAadhaarKycOtp
-//   5. RecordUserConsent (PAN)
-//   6. VerifyPanKyc
-//   7. GetBorrowerKycStatus / ListBorrowerKycHistory (optional)
-//
-// The iOS UX collects all profile fields in two screens before the KYC doc screens.
-// The repository accumulates those fields across submitPersonalDetails / submitAddressDetails,
-// then fires CompleteBorrowerOnboarding in submitIncomeDetails (the last profile step).
+//   1. RecordUserConsent (Aadhaar)
+//   2. InitiateAadhaarKyc  → returns reference_id
+//   3. VerifyAadhaarKycOtp
+//   4. RecordUserConsent (PAN)
+//   5. VerifyPanKyc
+//   6. GetBorrowerKycStatus / ListBorrowerKycHistory (optional)
 
 import Foundation
 import GRPCCore
@@ -46,13 +38,20 @@ public final class KYCRepository: Sendable {
         public let status: String
         public let message: String
         public let providerTransactionID: String
+        public let verifiedName: String
+        public let verifiedDateOfBirth: String
+        public let verifiedGender: String
     }
 
     public struct PanVerificationResult {
         /// `true` when backend returned `success = true`.
         public let isValid: Bool
         public let status: String
+        public let message: String
         public let providerTransactionID: String
+        public let nameAsPerPanMatch: Bool
+        public let dateOfBirthMatch: Bool
+        public let aadhaarSeedingStatus: String
     }
 
     public struct BorrowerKycStatusSnapshot {
@@ -62,34 +61,18 @@ public final class KYCRepository: Sendable {
         public let panVerifiedAt: String
     }
 
-    // MARK: - Pending profile state
-    // Accumulated across the two onboarding screens; flushed to the backend
-    // in submitIncomeDetails() via CompleteBorrowerOnboarding.
-
-    private var pendingFirstName: String = ""
-    private var pendingLastName: String = ""
-    private var pendingDateOfBirth: String = ""   // "YYYY-MM-DD"
-    private var pendingGender: Onboarding_V1_BorrowerGender = .unspecified
-    private var pendingAddressLine1: String = ""
-    private var pendingCity: String = ""
-    private var pendingState: String = ""
-    private var pendingPincode: String = ""
-
     // MARK: - Dependencies
 
     private let kycClient: KYCGRPCClientProtocol
-    private let onboardingClient: OnboardingGRPCClientProtocol
     private let tokenStore: TokenStore
 
     // MARK: - Init
 
     public nonisolated init(
         kycClient: KYCGRPCClientProtocol = KYCGRPCClient(),
-        onboardingClient: OnboardingGRPCClientProtocol = OnboardingGRPCClient(),
         tokenStore: TokenStore = .shared
     ) {
         self.kycClient = kycClient
-        self.onboardingClient = onboardingClient
         self.tokenStore = tokenStore
     }
 
@@ -102,67 +85,6 @@ public final class KYCRepository: Sendable {
         return AuthCallOptionsFactory.authenticated(accessToken: token)
     }
 
-    // MARK: - Onboarding profile steps
-
-    /// Step 1: Collect personal details + address locally (no network call yet).
-    public func submitBorrowerProfileBasics(
-        firstName: String,
-        lastName: String,
-        dateOfBirth: String,    // "YYYY-MM-DD"
-        gender: Onboarding_V1_BorrowerGender
-    ) {
-        pendingFirstName  = firstName
-        pendingLastName   = lastName
-        pendingDateOfBirth = dateOfBirth
-        pendingGender     = gender
-    }
-
-    /// Step 1b: Store address locally (called from the same screen; no network call).
-    public func submitAddressDetails(
-        addressLine1: String,
-        city: String,
-        state: String,
-        postalCode: String
-    ) {
-        pendingAddressLine1 = addressLine1
-        pendingCity         = city
-        pendingState        = state
-        pendingPincode      = postalCode
-    }
-
-    /// Step 2: Flush all collected profile data to the backend as a single
-    /// CompleteBorrowerOnboarding call, which creates the borrower_profiles row.
-    /// KYC RPCs will 404 until this succeeds.
-    public func submitIncomeDetails(
-        employmentType: String,
-        monthlyIncome: String
-    ) async throws {
-        let (options, metadata) = try authMetadata()
-
-        let protoEmployment = mapEmploymentType(employmentType)
-
-        var req = Onboarding_V1_CompleteBorrowerOnboardingRequest()
-        req.firstName                 = pendingFirstName
-        req.lastName                  = pendingLastName
-        req.dateOfBirth               = pendingDateOfBirth
-        req.gender                    = pendingGender
-        req.addressLine1              = pendingAddressLine1
-        req.city                      = pendingCity
-        req.state                     = pendingState
-        req.pincode                   = pendingPincode
-        req.employmentType            = protoEmployment
-        req.monthlyIncome             = monthlyIncome
-        req.profileCompletenessPercent = 80
-
-        let resp = try await onboardingClient.completeBorrowerOnboarding(
-            request: req, metadata: metadata, options: options
-        )
-
-        guard resp.success else {
-            throw KYCError.verificationFailed("Failed to save your profile. Please try again.")
-        }
-    }
-
     // MARK: - RecordUserConsent
 
     public func recordUserConsent(type: ConsentType) async throws {
@@ -172,14 +94,15 @@ public final class KYCRepository: Sendable {
         switch type {
         case .aadhaar:
             req.consentType  = .aadhaarKyc
-            req.consentText  = "I authorize identity verification for Aadhaar KYC."
+            req.consentText  = "I consent to Aadhaar-based e-KYC verification under UIDAI guidelines."
         case .pan:
             req.consentType  = .panKyc
-            req.consentText  = "I authorize identity verification for PAN KYC."
+            req.consentText  = "I consent to PAN verification."
         }
         req.consentVersion = "v1"
         req.isGranted      = true
-        req.source         = "mobile-ios"
+        req.source         = "mobile_app"
+        req.ipAddress      = currentDeviceIP()
         req.metadataJson   = "{\"screen\":\"kyc-consent\"}"
 
         let response = try await kycClient.recordUserConsent(request: req, metadata: metadata, options: options)
@@ -195,7 +118,7 @@ public final class KYCRepository: Sendable {
 
         var req = Kyc_V1_InitiateAadhaarKycRequest()
         req.aadhaarNumber = aadhaarNumber
-        req.reason        = "KYC verification"
+        req.reason        = "borrower_kyc"
 
         let resp = try await kycClient.initiateAadhaarKyc(request: req, metadata: metadata, options: options)
 
@@ -225,7 +148,10 @@ public final class KYCRepository: Sendable {
             isValid: resp.success && resp.status.uppercased() == "VALID",
             status: resp.status,
             message: resp.message,
-            providerTransactionID: resp.providerTransactionID
+            providerTransactionID: resp.providerTransactionID,
+            verifiedName: resp.name,
+            verifiedDateOfBirth: resp.dateOfBirth,
+            verifiedGender: resp.gender
         )
     }
 
@@ -242,14 +168,18 @@ public final class KYCRepository: Sendable {
         req.pan          = pan
         req.nameAsPerPan = nameAsPerPan
         req.dateOfBirth  = dateOfBirth
-        req.reason       = "KYC verification"
+        req.reason       = "borrower_kyc"
 
         let resp = try await kycClient.verifyPanKyc(request: req, metadata: metadata, options: options)
 
         return PanVerificationResult(
             isValid: resp.success,
             status: resp.status,
-            providerTransactionID: resp.providerTransactionID
+            message: resp.message,
+            providerTransactionID: resp.providerTransactionID,
+            nameAsPerPanMatch: resp.nameAsPerPanMatch,
+            dateOfBirthMatch: resp.dateOfBirthMatch,
+            aadhaarSeedingStatus: resp.aadhaarSeedingStatus
         )
     }
 
@@ -287,29 +217,10 @@ public final class KYCRepository: Sendable {
         return resp.items
     }
 
-    // MARK: - Legacy compat shim (called from KYCViewModel but replaced by real calls above)
-
-    /// No-op: personal details are now stored locally via submitBorrowerProfileBasics.
-    public func submitBorrowerProfileBasics(
-        fullName: String,
-        dob: String,
-        panNumber: String
-    ) async throws {
-        // The view passes first/last name separately; this overload is unused.
-        // Real data is stored by the 4-parameter version.
-    }
-
     /// No-op: e-signature is not yet implemented in the backend.
     public func submitESignature() async throws {}
 
-    // MARK: - Private helpers
-
-    private func mapEmploymentType(_ raw: String) -> Onboarding_V1_BorrowerEmploymentType {
-        switch raw.lowercased() {
-        case "salaried":                         return .salaried
-        case "self-employed", "selfemployed":    return .selfEmployed
-        case "business owner", "business":       return .business
-        default:                                 return .salaried
-        }
+    private func currentDeviceIP() -> String {
+        "0.0.0.0"
     }
 }

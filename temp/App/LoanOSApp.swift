@@ -17,11 +17,28 @@ import SwiftUI
 
 @main
 struct LoanOSApp: App {
-    @StateObject private var session = SessionStore()
+    @StateObject private var session: SessionStore
+
+    init() {
+        Self.clearKeychainOnFreshInstall()
+        _session = StateObject(wrappedValue: SessionStore())
+    }
 
     var body: some Scene {
         WindowGroup {
             RootView().environmentObject(session)
         }
+    }
+
+    private static func clearKeychainOnFreshInstall() {
+        let hasLaunchedBeforeKey = "loanOS_hasLaunchedBefore"
+        let hasLaunchedBefore = UserDefaults.standard.bool(forKey: hasLaunchedBeforeKey)
+
+        guard !hasLaunchedBefore else { return }
+
+        try? TokenStore.shared.clearAll()
+        try? DeviceIDStore.shared.reset()
+        QuickLoginPreferencesStore.shared.clearAll()
+        UserDefaults.standard.set(true, forKey: hasLaunchedBeforeKey)
     }
 }

@@ -216,11 +216,18 @@ struct QuickLoginView: View {
                         
                         try? await Task.sleep(nanoseconds: 300_000_000)
                         
-                        if success {
-                            session.unlockAppSession()
-                        } else {
+                        if !success {
                             if registerFailedAttempt() {
                                 bioError = "Invalid authenticator code."
+                            }
+                        }
+                    } catch let error as AuthError {
+                        if registerFailedAttempt() {
+                            switch error {
+                            case .sessionExpired:
+                                bioError = "Your session has fully expired. Please sign in again."
+                            default:
+                                bioError = error.localizedDescription
                             }
                         }
                     } catch {
@@ -299,11 +306,19 @@ struct QuickLoginView: View {
         bioError = ""
         isAuthenticating = true
 
-        BiometricAuth.authenticate(reason: "Verify your identity to open LoanOS") { ok, err in
-            isAuthenticating = false
+        BiometricAuth.authenticate(reason: "Verify your identity to open the app") { ok, err in
             if ok {
-                session.unlockAppSession()
+                Task { @MainActor in
+                    let restored = await SessionManager.shared.attemptSilentRestore()
+                    if restored {
+                        session.unlockAppSession()
+                    } else if registerFailedAttempt() {
+                        bioError = "Your session has fully expired. Please sign in again."
+                    }
+                    isAuthenticating = false
+                }
             } else {
+                isAuthenticating = false
                 let message = BiometricAuth.humanMessage(for: err)
                 if registerFailedAttempt() {
                     bioError = message

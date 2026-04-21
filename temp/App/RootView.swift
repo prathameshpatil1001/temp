@@ -17,7 +17,13 @@ struct RootView: View {
         Group {
             if session.isLoggedIn {
                 if session.isAppUnlocked {
-                    HomeView()
+                    if session.isOnboardingComplete {
+                        HomeView()
+                    } else if #available(iOS 18.0, *) {
+                        OnboardingFlowController()
+                    } else {
+                        HomeView()
+                    }
                 } else {
                     QuickLoginGate()
                 }
@@ -47,7 +53,7 @@ struct RootView: View {
             case "verificationSuccess":
                 session.pendingKYCRoute = .verificationSuccess
             case "verifyIdentity":
-                session.pendingKYCRoute = .verifyIdentity
+                session.pendingKYCRoute = .aadhaarInput
             default:
                 break
             }

@@ -19,6 +19,7 @@ final class SessionStore: ObservableObject {
     @Published var userName: String // Still kept locally for display purposes
     @Published var userEmail: String
     @Published var userPhone: String
+    @Published var isOnboardingComplete: Bool
     @Published var showSessionExpiredAlert: Bool = false
     @Published var pendingKYCRoute: KYCRoute? = nil
     @Published var logoutBannerMessage: String? = nil
@@ -33,6 +34,8 @@ final class SessionStore: ObservableObject {
         userName   = UserDefaults.standard.string(forKey: "loanOS_userName") ?? ""
         userEmail  = UserDefaults.standard.string(forKey: "loanOS_userEmail") ?? ""
         userPhone  = UserDefaults.standard.string(forKey: "loanOS_userPhone") ?? ""
+        isOnboardingComplete = false
+        refreshOnboardingCompletionStatus()
         // Real implementation would read cached KYC status or fetch it globally
         
         NotificationCenter.default.publisher(for: .sessionExpired)
@@ -56,9 +59,10 @@ final class SessionStore: ObservableObject {
         contactIdentifier: String? = nil,
         kycStatus: KYCStatus = .notStarted
     ) {
+        var appliedStagedSignupProfile = false
         if let contactIdentifier {
             applyContactIdentifier(contactIdentifier)
-            applyStagedSignupProfile(for: contactIdentifier)
+            appliedStagedSignupProfile = applyStagedSignupProfile(for: contactIdentifier)
         }
         if let name {
             updateName(name)
@@ -69,6 +73,10 @@ final class SessionStore: ObservableObject {
         if let phone {
             updatePhone(phone)
         }
+        if appliedStagedSignupProfile {
+            setOnboardingComplete(false)
+        }
+        refreshOnboardingCompletionStatus()
         self.kycStatus = kycStatus
         self.logoutBannerMessage = nil
         isLoggedIn = true
@@ -102,6 +110,16 @@ final class SessionStore: ObservableObject {
         UserDefaults.standard.set(trimmedPhone, forKey: "loanOS_userPhone")
     }
 
+    func setOnboardingComplete(_ complete: Bool) {
+        guard let identifier = activeOnboardingIdentifier else {
+            isOnboardingComplete = complete
+            return
+        }
+
+        isOnboardingComplete = complete
+        UserDefaults.standard.set(complete, forKey: Self.onboardingCompletionKeyPrefix + identifier)
+    }
+
     static func stageSignupProfile(name: String, email: String, phone: String) {
         let profile: [String: String] = [
             "name": name.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -124,6 +142,7 @@ final class SessionStore: ObservableObject {
         self.isLoggedIn = false
         self.isAppUnlocked = false
         self.justLoggedIn = false
+        self.isOnboardingComplete = false
         self.kycStatus = .notStarted
 
         // Then do backend cleanup in background (best effort)
@@ -172,23 +191,26 @@ final class SessionStore: ObservableObject {
         let matchesCurrentPhone = normalizedIdentifier == Self.normalizedProfileIdentifier(userPhone)
 
         if trimmedIdentifier.contains("@") {
-            updateEmail(trimmedIdentifier)
-            if !matchesCurrentEmail {
+            if !matchesCurrentEmail && !userEmail.isEmpty {
                 clearName()
                 clearPhone()
             }
+            updateEmail(trimmedIdentifier)
         } else {
-            updatePhone(trimmedIdentifier)
-            if !matchesCurrentPhone {
+            if !matchesCurrentPhone && !userPhone.isEmpty {
                 clearName()
                 clearEmail()
             }
+            updatePhone(trimmedIdentifier)
         }
+
+        isOnboardingComplete = onboardingCompletion(for: normalizedIdentifier)
     }
 
-    private func applyStagedSignupProfile(for identifier: String) {
+    @discardableResult
+    private func applyStagedSignupProfile(for identifier: String) -> Bool {
         let key = Self.stagedSignupProfilePrefix + Self.normalizedProfileIdentifier(identifier)
-        guard let profile = UserDefaults.standard.dictionary(forKey: key) as? [String: String] else { return }
+        guard let profile = UserDefaults.standard.dictionary(forKey: key) as? [String: String] else { return false }
 
         updateName(profile["name"] ?? "")
         updateEmail(profile["email"] ?? "")
@@ -199,9 +221,12 @@ final class SessionStore: ObservableObject {
             let relatedKey = Self.stagedSignupProfilePrefix + Self.normalizedProfileIdentifier(relatedIdentifier)
             UserDefaults.standard.removeObject(forKey: relatedKey)
         }
+
+        return true
     }
 
     private static let stagedSignupProfilePrefix = "loanOS_staged_signup_profile_"
+    private static let onboardingCompletionKeyPrefix = "loanOS_onboarding_complete_"
 
     private func clearName() {
         userName = ""
@@ -220,5 +245,40 @@ final class SessionStore: ObservableObject {
 
     private static func normalizedProfileIdentifier(_ identifier: String) -> String {
         identifier.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private var activeOnboardingIdentifier: String? {
+        if let accessToken = try? TokenStore.shared.accessToken(),
+           let userID = JWTClaimsDecoder.subject(from: accessToken),
+           !userID.isEmpty {
+            return Self.normalizedProfileIdentifier(userID)
+        }
+
+        let normalizedEmail = Self.normalizedProfileIdentifier(userEmail)
+        if !normalizedEmail.isEmpty {
+            return normalizedEmail
+        }
+
+        let normalizedPhone = Self.normalizedProfileIdentifier(userPhone)
+        if !normalizedPhone.isEmpty {
+            return normalizedPhone
+        }
+
+        return nil
+    }
+
+    private func refreshOnboardingCompletionStatus() {
+        guard let identifier = activeOnboardingIdentifier else {
+            isOnboardingComplete = false
+            return
+        }
+        isOnboardingComplete = onboardingCompletion(for: identifier)
+    }
+
+    private func onboardingCompletion(for identifier: String) -> Bool {
+        if let storedValue = UserDefaults.standard.object(forKey: Self.onboardingCompletionKeyPrefix + identifier) as? Bool {
+            return storedValue
+        }
+        return true
     }
 }

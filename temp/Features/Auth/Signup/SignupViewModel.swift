@@ -64,15 +64,14 @@ public final class SignupViewModel: ObservableObject {
 
         state = .loading("Verifying codes...")
         do {
-            let success = try await authRepository.verifySignupOTP(registrationID: regID, emailCode: emailCode, phoneCode: phoneCode)
-            if success {
-                self.state = .success
-                return true
-            } else {
-                self.state = .error("Verification failed.")
-                self.errorMessage = "Verification failed."
-                return false
-            }
+            let tokens = try await authRepository.verifySignupOTP(
+                registrationID: regID,
+                emailCode: emailCode,
+                phoneCode: phoneCode
+            )
+            try SessionManager.shared.startSession(tokens: tokens)
+            self.state = .success
+            return true
         } catch {
             self.state = .error(error.localizedDescription)
             self.errorMessage = error.localizedDescription

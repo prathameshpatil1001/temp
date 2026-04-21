@@ -11,7 +11,7 @@ final class QuickLoginPreferencesStore {
     private init() {}
 
     func isBiometricEnabled(for userID: String) -> Bool {
-        bool(forKey: biometricPrefix + userID, defaultValue: true)
+        bool(forKey: biometricPrefix + userID, defaultValue: false)
     }
 
     func setBiometricEnabled(_ enabled: Bool, for userID: String) {
@@ -19,7 +19,7 @@ final class QuickLoginPreferencesStore {
     }
 
     func isAuthenticatorEnabled(for userID: String) -> Bool {
-        bool(forKey: authenticatorPrefix + userID, defaultValue: true)
+        bool(forKey: authenticatorPrefix + userID, defaultValue: false)
     }
 
     func setAuthenticatorEnabled(_ enabled: Bool, for userID: String) {
@@ -42,6 +42,17 @@ final class QuickLoginPreferencesStore {
         let value = defaults.bool(forKey: key)
         defaults.removeObject(forKey: key)
         return value
+    }
+
+    func clearAll() {
+        let allKeys = defaults.dictionaryRepresentation().keys
+        allKeys
+            .filter {
+                $0.hasPrefix(biometricPrefix) ||
+                $0.hasPrefix(authenticatorPrefix) ||
+                $0.hasPrefix(stagedBiometricPrefix)
+            }
+            .forEach { defaults.removeObject(forKey: $0) }
     }
 
     private func bool(forKey key: String, defaultValue: Bool) -> Bool {

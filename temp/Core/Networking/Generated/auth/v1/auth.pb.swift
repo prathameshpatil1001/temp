@@ -162,6 +162,10 @@ public struct Auth_V1_VerifyOTPsResponse: Sendable {
 
   public var verified: Bool = false
 
+  public var accessToken: String = String()
+
+  public var refreshToken: String = String()
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -689,7 +693,11 @@ extension Auth_V1_VerifyOTPsRequest: SwiftProtobuf.Message, SwiftProtobuf._Messa
 
 extension Auth_V1_VerifyOTPsResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".VerifyOTPsResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}verified\0")
+  public static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "verified"),
+    2: .standard(proto: "access_token"),
+    3: .standard(proto: "refresh_token"),
+  ]
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -698,6 +706,8 @@ extension Auth_V1_VerifyOTPsResponse: SwiftProtobuf.Message, SwiftProtobuf._Mess
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularBoolField(value: &self.verified) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.accessToken) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.refreshToken) }()
       default: break
       }
     }
@@ -707,11 +717,19 @@ extension Auth_V1_VerifyOTPsResponse: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if self.verified != false {
       try visitor.visitSingularBoolField(value: self.verified, fieldNumber: 1)
     }
+    if !self.accessToken.isEmpty {
+      try visitor.visitSingularStringField(value: self.accessToken, fieldNumber: 2)
+    }
+    if !self.refreshToken.isEmpty {
+      try visitor.visitSingularStringField(value: self.refreshToken, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Auth_V1_VerifyOTPsResponse, rhs: Auth_V1_VerifyOTPsResponse) -> Bool {
     if lhs.verified != rhs.verified {return false}
+    if lhs.accessToken != rhs.accessToken {return false}
+    if lhs.refreshToken != rhs.refreshToken {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -15,14 +15,15 @@ public final class KYCViewModel: ObservableObject {
     @Published public var state: State = .idle
     @Published public var errorMessage: String?
 
-    // Personal details (split for backend compatibility)
-    @Published public var firstName = ""
-    @Published public var lastName = ""
-    @Published public var gender: Onboarding_V1_BorrowerGender = .male
-    /// Derived full name for display and PAN matching
-    public var fullName: String { "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces) }
+    private let initialFullName: String
+    private let initialDateOfBirth: String
 
-    @Published public var dateOfBirth = ""
+    @Published public var aadhaarVerifiedName = ""
+    @Published public var aadhaarVerifiedDateOfBirth = ""
+    @Published public var aadhaarVerifiedGender = ""
+
+    @Published public var panNameAsPerVerification = ""
+    @Published public var panDateOfBirthForVerification = ""
     @Published public var panNumber = ""
     @Published public var aadhaarNumber = ""
     @Published public var aadhaarOTP = ""
@@ -33,17 +34,39 @@ public final class KYCViewModel: ObservableObject {
     @Published public var panProviderTransactionID = ""
     @Published public var isAadhaarVerified = false
     @Published public var isPanVerified = false
-    @Published public var currentAddress = ""
-    @Published public var city = ""
-    @Published public var stateName = ""
-    @Published public var postalCode = ""
-    @Published public var selectedEmploymentStatus = "Salaried"
-    @Published public var employerName = ""
-    @Published public var netMonthlyIncome = ""
+    @Published public var panNameMatch = false
+    @Published public var panDOBMatch = false
+    @Published public var aadhaarSeedingStatus = ""
+    @Published public var selfieImageData: Data?
+
+    public var fullName: String {
+        if !aadhaarVerifiedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return aadhaarVerifiedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return initialFullName
+    }
+
+    public var dateOfBirth: String {
+        if !aadhaarVerifiedDateOfBirth.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return aadhaarVerifiedDateOfBirth
+        }
+        if !panDateOfBirthForVerification.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return panDateOfBirthForVerification
+        }
+        return initialDateOfBirth
+    }
 
     private let kycRepository: KYCRepository
 
-    public init(kycRepository: KYCRepository = KYCRepository()) {
+    public init(
+        fullName: String = "",
+        dateOfBirth: String = "",
+        kycRepository: KYCRepository = KYCRepository()
+    ) {
+        self.initialFullName = fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.initialDateOfBirth = dateOfBirth.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.panNameAsPerVerification = self.initialFullName
+        self.panDateOfBirthForVerification = self.initialDateOfBirth
         self.kycRepository = kycRepository
     }
 
@@ -53,20 +76,6 @@ public final class KYCViewModel: ObservableObject {
 
     public var isBackendImplementedFlowComplete: Bool {
         isAadhaarVerified && isPanVerified
-    }
-
-    public func submitPersonalDetails() async -> Bool {
-        guard validateBasicDetails() else { return false }
-        errorMessage = nil
-        // Store profile fields locally — no network call yet.
-        // The actual CompleteBorrowerOnboarding RPC fires in submitIncomeDetails().
-        kycRepository.submitBorrowerProfileBasics(
-            firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
-            lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
-            dateOfBirth: dateOfBirth,
-            gender: gender
-        )
-        return true
     }
 
     public func sendAadhaarOTP() async -> Bool {
@@ -120,6 +129,15 @@ public final class KYCViewModel: ObservableObject {
             aadhaarOTP = trimmedOTP
             aadhaarProviderTransactionID = response.providerTransactionID
             isAadhaarVerified = true
+            if !response.verifiedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                aadhaarVerifiedName = response.verifiedName.trimmingCharacters(in: .whitespacesAndNewlines)
+                panNameAsPerVerification = aadhaarVerifiedName
+            }
+            if !response.verifiedDateOfBirth.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                aadhaarVerifiedDateOfBirth = response.verifiedDateOfBirth
+                panDateOfBirthForVerification = aadhaarVerifiedDateOfBirth
+            }
+            aadhaarVerifiedGender = response.verifiedGender
             state = .idle
             return true
         } catch {
@@ -132,11 +150,11 @@ public final class KYCViewModel: ObservableObject {
             return fail(with: "Please record PAN consent before continuing.")
         }
 
-        guard !fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !panNameAsPerVerification.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return fail(with: "Enter your full name to verify PAN.")
         }
 
-        guard !dateOfBirth.isEmpty else {
+        guard !panDateOfBirthForVerification.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return fail(with: "Select your date of birth to verify PAN.")
         }
 
@@ -151,8 +169,8 @@ public final class KYCViewModel: ObservableObject {
             state = .loading("Verifying PAN...")
             let response = try await kycRepository.verifyPanKyc(
                 pan: normalizedPAN,
-                nameAsPerPan: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
-                dateOfBirth: dateOfBirth
+                nameAsPerPan: panNameAsPerVerification.trimmingCharacters(in: .whitespacesAndNewlines),
+                dateOfBirth: panDateOfBirthForVerification.trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             guard response.isValid else {
@@ -161,6 +179,9 @@ public final class KYCViewModel: ObservableObject {
 
             panNumber = normalizedPAN
             panProviderTransactionID = response.providerTransactionID
+            panNameMatch = response.nameAsPerPanMatch
+            panDOBMatch = response.dateOfBirthMatch
+            aadhaarSeedingStatus = response.aadhaarSeedingStatus
             isPanVerified = true
             state = .idle
             return true
@@ -185,35 +206,6 @@ public final class KYCViewModel: ObservableObject {
             return .pending
         } catch {
             return .rejected
-        }
-    }
-
-    public func submitAddressProof() async -> Bool {
-        errorMessage = nil
-        // Store address locally — no network call yet.
-        kycRepository.submitAddressDetails(
-            addressLine1: currentAddress,
-            city: city,
-            state: stateName,
-            postalCode: postalCode
-        )
-        return true
-    }
-
-    public func submitIncomeDetails() async -> Bool {
-        errorMessage = nil
-        state = .loading("Creating borrower profile...")
-        do {
-            // This fires CompleteBorrowerOnboarding, creating the borrower_profiles
-            // row in the DB. All KYC RPCs require this row to exist.
-            try await kycRepository.submitIncomeDetails(
-                employmentType: selectedEmploymentStatus,
-                monthlyIncome: netMonthlyIncome
-            )
-            state = .idle
-            return true
-        } catch {
-            return fail(with: error.localizedDescription)
         }
     }
 
@@ -248,19 +240,5 @@ public final class KYCViewModel: ObservableObject {
         state = .error(message)
         errorMessage = message
         return false
-    }
-
-    private func validateBasicDetails() -> Bool {
-        guard !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return fail(with: "Enter your first name to continue.")
-        }
-        guard !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return fail(with: "Enter your last name to continue.")
-        }
-        guard !dateOfBirth.isEmpty else {
-            return fail(with: "Select your date of birth to continue.")
-        }
-        errorMessage = nil
-        return true
     }
 }

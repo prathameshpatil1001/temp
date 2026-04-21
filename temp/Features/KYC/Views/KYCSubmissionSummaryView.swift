@@ -13,10 +13,10 @@ struct KYCSubmissionSummaryView: View {
     }
 
     private let remainingItems = [
-        "Address proof collection",
-        "Income details",
+        "Income document upload",
+        "Live photo capture",
         "E-signature",
-        "Manual document review"
+        "Final review"
     ]
 
     var body: some View {
@@ -44,6 +44,12 @@ struct KYCSubmissionSummaryView: View {
                     value: viewModel.isPanVerified ? viewModel.normalizedPAN : "Pending",
                     detail: "Consent + PAN verification",
                     isComplete: viewModel.isPanVerified
+                )
+                summaryRow(
+                    title: "Live photo",
+                    value: viewModel.selfieImageData == nil ? "Pending backend" : "Captured",
+                    detail: "Selfie captured for liveness verification",
+                    isComplete: viewModel.selfieImageData != nil
                 )
                 summaryRow(
                     title: "Borrower KYC status",

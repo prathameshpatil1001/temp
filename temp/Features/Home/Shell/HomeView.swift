@@ -13,7 +13,7 @@ struct HomeView: View {
             .navigationBarBackButtonHidden(true)
             .fullScreenCover(isPresented: $showKYCFlow) {
                 if #available(iOS 18.0, *) {
-                    KYCFlowController()
+                    KYCFlowController(fullName: session.userName)
                 } else {
                     // KYC requires iOS 18. Show a message for older devices.
                     Text("KYC verification requires iOS 18 or later.")

@@ -5,16 +5,16 @@ struct KYCStatusView: View {
     @State private var showKYCFlow = false
 
     private let identitySteps = [
-        "Aadhaar consent and OTP verification",
-        "PAN consent and verification",
-        "Verification status confirmation"
+        "Aadhaar consent & OTP initiation",
+        "Aadhaar OTP verification",
+        "PAN input, consent, and verification result"
     ]
 
     private let nextSteps = [
-        "Address details",
-        "Income details",
+        "Income document upload",
+        "Live photo capture",
         "E-signature",
-        "Additional profile steps"
+        "Review and submit"
     ]
 
     private var bannerIcon: String {
@@ -117,7 +117,7 @@ struct KYCStatusView: View {
         .navigationTitle("KYC Status")
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showKYCFlow) {
-            KYCFlowController()
+            KYCFlowController(fullName: session.userName)
         }
     }
 

@@ -46,7 +46,7 @@ public final class AuthRepository: Sendable {
     }
 
     /// Verifies both email and phone OTPs to complete signup.
-    public func verifySignupOTP(registrationID: String, emailCode: String, phoneCode: String) async throws -> Bool {
+    public func verifySignupOTP(registrationID: String, emailCode: String, phoneCode: String) async throws -> Auth_V1_AuthTokens {
         var request = Auth_V1_VerifyOTPsRequest()
         request.registrationID = registrationID
         request.emailCode = emailCode
@@ -54,7 +54,18 @@ public final class AuthRepository: Sendable {
 
         let options = AuthCallOptionsFactory.unauthenticated()
         let response = try await client.verifySignupOTPs(request: request, options: options)
-        return response.verified
+        guard response.verified else {
+            throw AuthError.invalidServerResponse("Signup verification failed.")
+        }
+
+        guard !response.accessToken.isEmpty, !response.refreshToken.isEmpty else {
+            throw AuthError.invalidServerResponse("Signup verification succeeded but tokens were missing.")
+        }
+
+        var tokens = Auth_V1_AuthTokens()
+        tokens.accessToken = response.accessToken
+        tokens.refreshToken = response.refreshToken
+        return tokens
     }
 
     // MARK: - Login Flow

@@ -13,6 +13,7 @@ struct SignupEmailOTPView: View {
     @State private var appeared = false
     @FocusState private var focused: Bool
     @EnvironmentObject private var viewModel: SignupViewModel
+    @EnvironmentObject private var session: SessionStore
 
     private var canContinue: Bool {
         otp.count == 6
@@ -166,6 +167,12 @@ struct SignupEmailOTPView: View {
                 let success = await viewModel.verifyOTPs(emailCode: otp, phoneCode: phoneOTP)
                 if success {
                     AnalyticsManager.shared.logEvent(.signupCompleted)
+                    session.completeSession(
+                        name: viewModel.signupName,
+                        email: viewModel.signupEmail,
+                        phone: viewModel.signupPhone
+                    )
+                    session.setOnboardingComplete(false)
                     path.append(SignupRoute.faceIDPrompt)
                 }
             }

@@ -1,37 +1,26 @@
 import SwiftUI
+import Combine
 
-/// KYC Step 1 of 3 — Collects all fields required by CompleteBorrowerOnboarding
-/// and fires it before navigating to VerifyIdentityView.
-/// The backend requires a borrower_profiles row to exist before any KYC RPC works.
 @available(iOS 18.0, *)
-struct PersonalDetailsView: View {
+struct BorrowerProfileView: View {
     @Binding var path: NavigationPath
-    @EnvironmentObject private var viewModel: KYCViewModel
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var viewModel: OnboardingViewModel
+    @EnvironmentObject private var session: SessionStore
 
-    // Personal
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var dateOfBirth = Calendar.current.date(from: DateComponents(year: 1995, month: 8, day: 20)) ?? Date()
     @State private var gender: BorrowerGender = .male
-
-    // PAN
-    @State private var panNumber = ""
-
-    // Address
     @State private var addressLine1 = ""
     @State private var city = ""
     @State private var stateField = ""
     @State private var pincode = ""
-
-    // Employment
     @State private var employmentType: BorrowerEmploymentType = .salaried
     @State private var monthlyIncome = ""
 
     private var isFormValid: Bool {
         !firstName.trimmed.isEmpty &&
         !lastName.trimmed.isEmpty &&
-        panNumber.trimmed.uppercased().count == 10 &&
         !addressLine1.trimmed.isEmpty &&
         !city.trimmed.isEmpty &&
         !stateField.trimmed.isEmpty &&
@@ -46,7 +35,6 @@ struct PersonalDetailsView: View {
                     .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
             }
 
-            // MARK: Personal
             Section {
                 TextField("First name", text: $firstName)
                     .textContentType(.givenName)
@@ -56,13 +44,6 @@ struct PersonalDetailsView: View {
                     .textContentType(.familyName)
                     .textInputAutocapitalization(.words)
 
-                TextField("PAN number", text: $panNumber)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .onChange(of: panNumber) { _, v in
-                        panNumber = String(v.uppercased().prefix(10))
-                    }
-
                 DatePicker(
                     "Date of birth",
                     selection: $dateOfBirth,
@@ -71,17 +52,14 @@ struct PersonalDetailsView: View {
                 )
 
                 Picker("Gender", selection: $gender) {
-                    ForEach(BorrowerGender.allCases) { g in
-                        Text(g.rawValue).tag(g)
+                    ForEach(BorrowerGender.allCases) { value in
+                        Text(value.rawValue).tag(value)
                     }
                 }
             } header: {
                 Text("Personal details")
-            } footer: {
-                Text("Your name and DOB must match your Aadhaar and PAN exactly.")
             }
 
-            // MARK: Address
             Section {
                 TextField("Address line 1", text: $addressLine1, axis: .vertical)
                     .textContentType(.streetAddressLine1)
@@ -99,18 +77,17 @@ struct PersonalDetailsView: View {
                 TextField("Pincode", text: $pincode)
                     .textContentType(.postalCode)
                     .keyboardType(.numberPad)
-                    .onChange(of: pincode) { _, v in
-                        pincode = String(v.filter(\.isNumber).prefix(6))
+                    .onChange(of: pincode) { _, value in
+                        pincode = String(value.filter(\.isNumber).prefix(6))
                     }
             } header: {
                 Text("Current address")
             }
 
-            // MARK: Employment
             Section {
                 Picker("Employment type", selection: $employmentType) {
-                    ForEach(BorrowerEmploymentType.allCases) { type in
-                        Text(type.rawValue).tag(type)
+                    ForEach(BorrowerEmploymentType.allCases) { value in
+                        Text(value.rawValue).tag(value)
                     }
                 }
 
@@ -118,50 +95,37 @@ struct PersonalDetailsView: View {
                     Text("₹").foregroundStyle(.secondary)
                     TextField("Monthly income", text: $monthlyIncome)
                         .keyboardType(.decimalPad)
-                        .onChange(of: monthlyIncome) { _, v in
-                            monthlyIncome = sanitizedIncome(from: v)
+                        .onChange(of: monthlyIncome) { _, value in
+                            monthlyIncome = sanitizedIncome(from: value)
                         }
                 }
             } header: {
                 Text("Employment & income")
-            } footer: {
-                Text("Enter your approximate monthly income before deductions.")
             }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("Your Details")
+        .navigationTitle("Complete Your Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
         .onAppear {
-            // Pre-fill if coming back from a later step
-            if !viewModel.firstName.isEmpty { firstName = viewModel.firstName }
-            if !viewModel.lastName.isEmpty  { lastName  = viewModel.lastName }
-            if !viewModel.panNumber.isEmpty && viewModel.panNumber != "PENDING" {
-                panNumber = viewModel.panNumber
-            }
+            if firstName.isEmpty { firstName = viewModel.firstName }
+            if lastName.isEmpty { lastName = viewModel.lastName }
+            if addressLine1.isEmpty { addressLine1 = viewModel.addressLine1 }
+            if city.isEmpty { city = viewModel.city }
+            if stateField.isEmpty { stateField = viewModel.stateName }
+            if pincode.isEmpty { pincode = viewModel.postalCode }
+            if monthlyIncome.isEmpty { monthlyIncome = viewModel.monthlyIncome }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    if !path.isEmpty { path.removeLast() } else { dismiss() }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
-                }
-                .accessibilityLabel("Back")
-            }
+        .safeAreaInset(edge: .bottom) {
+            bottomBar
         }
-        .safeAreaInset(edge: .bottom) { bottomBar }
     }
-
-    // MARK: - Header
 
     private var headerContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label {
-                Text("Step 1 of 3")
+                Text("Profile setup")
                     .font(.subheadline.weight(.semibold))
             } icon: {
                 Image(systemName: "person.crop.circle")
@@ -169,19 +133,17 @@ struct PersonalDetailsView: View {
             .foregroundStyle(DS.primary)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Set up your borrower profile")
+                Text("Tell us about yourself")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(DS.textPrimary)
 
-                Text("These details are used to verify your identity via Aadhaar and PAN. They must match exactly.")
+                Text("These details complete your borrower profile before KYC verification.")
                     .font(.subheadline)
                     .foregroundStyle(DS.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
-
-    // MARK: - Bottom bar
 
     private var bottomBar: some View {
         VStack(spacing: 8) {
@@ -190,32 +152,24 @@ struct PersonalDetailsView: View {
                 isLoading: viewModel.isLoading,
                 disabled: !isFormValid || viewModel.isLoading
             ) {
-                // Push all collected fields into the ViewModel
-                viewModel.firstName   = firstName.trimmed
-                viewModel.lastName    = lastName.trimmed
-                viewModel.gender      = gender.toProto
-                viewModel.panNumber   = panNumber.trimmed.uppercased()
-                viewModel.currentAddress = addressLine1.trimmed
-                viewModel.city        = city.trimmed
-                viewModel.stateName   = stateField.trimmed
-                viewModel.postalCode  = pincode.trimmed
-                viewModel.selectedEmploymentStatus = employmentType.rawValue
-                viewModel.netMonthlyIncome = monthlyIncome.trimmed
+                viewModel.firstName = firstName.trimmed
+                viewModel.lastName = lastName.trimmed
+                viewModel.gender = gender.toProto
+                viewModel.addressLine1 = addressLine1.trimmed
+                viewModel.city = city.trimmed
+                viewModel.stateName = stateField.trimmed
+                viewModel.postalCode = pincode.trimmed
+                viewModel.employmentType = employmentType.toProto
+                viewModel.monthlyIncome = monthlyIncome.trimmed
 
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyy-MM-dd"
                 viewModel.dateOfBirth = formatter.string(from: dateOfBirth)
 
                 Task {
-                    // submitPersonalDetails stores locally,
-                    // submitAddressProof stores locally,
-                    // submitIncomeDetails fires CompleteBorrowerOnboarding → creates the DB row.
-                    let step1 = await viewModel.submitPersonalDetails()
-                    guard step1 else { return }
-                    let step2 = await viewModel.submitAddressProof()
-                    guard step2 else { return }
-                    if await viewModel.submitIncomeDetails() {
-                        path.append(KYCRoute.verifyIdentity)
+                    if await viewModel.submitBorrowerProfile() {
+                        session.setOnboardingComplete(true)
+                        path.append(OnboardingRoute.complete)
                     }
                 }
             }
@@ -237,33 +191,41 @@ struct PersonalDetailsView: View {
         .background(.regularMaterial)
     }
 
-    // MARK: - Helpers
-
     private func sanitizedIncome(from value: String) -> String {
         var hasDecimal = false
-        return value.filter { c in
-            if c.isNumber { return true }
-            if c == "." && !hasDecimal { hasDecimal = true; return true }
+        return value.filter { char in
+            if char.isNumber { return true }
+            if char == "." && !hasDecimal {
+                hasDecimal = true
+                return true
+            }
             return false
         }
     }
 }
 
-// MARK: - String trimmed
-
 private extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
-// MARK: - BorrowerGender.toProto
-
-@available(iOS 18.0, *)
 private extension BorrowerGender {
     var toProto: Onboarding_V1_BorrowerGender {
         switch self {
-        case .male:   return .male
+        case .male: return .male
         case .female: return .female
-        case .other:  return .other
+        case .other: return .other
+        }
+    }
+}
+
+private extension BorrowerEmploymentType {
+    var toProto: Onboarding_V1_BorrowerEmploymentType {
+        switch self {
+        case .salaried: return .salaried
+        case .selfEmployed: return .selfEmployed
+        case .businessOwner: return .business
+        case .student: return .unspecified
+        case .retired: return .unspecified
         }
     }
 }

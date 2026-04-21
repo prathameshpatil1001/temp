@@ -45,6 +45,7 @@ struct KYCVerificationFailedView: View {
                     PrimaryBtn(title: "Try Again") {
                         // Reset to the beginning of the KYC Flow
                         path = NavigationPath()
+                        path.append(KYCRoute.aadhaarInput)
                     }
 
                     Button("Contact Support") {

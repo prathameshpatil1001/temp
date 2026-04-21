@@ -5,15 +5,16 @@
 import SwiftUI
 
 public enum KYCRoute: Hashable {
-    case completeProfile
-    case personalDetails
-    case addressProof
-    case incomeDetails
+    case aadhaarInput
+    case aadhaarOTPVerify
+    case panInput
+    case panResult
+    case incomeDocuments
+    case livePhoto
     case eSignature
     case review
     case submissionSummary
     case verifying
-    case verifyIdentity
     case verificationSuccess
     case verificationFailed
 }
@@ -21,28 +22,38 @@ public enum KYCRoute: Hashable {
 @available(iOS 18.0, *)
 public struct KYCFlowController: View {
     @State private var path = NavigationPath()
-    @StateObject private var viewModel = KYCViewModel()
+    @StateObject private var viewModel: KYCViewModel
     
     @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
 
-    public init() {}
+    public init(fullName: String = "", dateOfBirth: String = "") {
+        _viewModel = StateObject(wrappedValue: KYCViewModel(fullName: fullName, dateOfBirth: dateOfBirth))
+    }
 
     public var body: some View {
         NavigationStack(path: $path) {
-            CompleteProfileView(path: $path)
+            AadhaarInputView(path: $path)
+                .environmentObject(viewModel)
                 .navigationDestination(for: KYCRoute.self) { route in
                     switch route {
-                    case .completeProfile:
-                        CompleteProfileView(path: $path)
-                    case .personalDetails:
-                        PersonalDetailsView(path: $path)
+                    case .aadhaarInput:
+                        AadhaarInputView(path: $path)
                             .environmentObject(viewModel)
-                    case .addressProof:
-                        AddressProofView(path: $path)
+                    case .aadhaarOTPVerify:
+                        AadhaarOTPVerifyView(path: $path)
                             .environmentObject(viewModel)
-                    case .incomeDetails:
+                    case .panInput:
+                        PANInputView(path: $path)
+                            .environmentObject(viewModel)
+                    case .panResult:
+                        PANResultView(path: $path)
+                            .environmentObject(viewModel)
+                    case .incomeDocuments:
                         IncomeDetailsView(path: $path)
+                            .environmentObject(viewModel)
+                    case .livePhoto:
+                        LivePhotoCaptureView(path: $path)
                             .environmentObject(viewModel)
                     case .eSignature:
                         ESignatureView(path: $path)
@@ -52,9 +63,6 @@ public struct KYCFlowController: View {
                             .environmentObject(viewModel)
                     case .submissionSummary:
                         KYCSubmissionSummaryView(path: $path)
-                            .environmentObject(viewModel)
-                    case .verifyIdentity:
-                        VerifyIdentityView(path: $path)
                             .environmentObject(viewModel)
                     case .verifying:
                         KYCVerifyingView(path: $path)

@@ -39,6 +39,23 @@ public final class SetupTOTPViewModel: ObservableObject {
         do {
             let result = try await authRepository.setupTOTP()
             self.state = .secretReceived(secret: result.secret, provisioningURI: result.provisioningURI)
+        } catch let error as AuthError {
+            if case .sessionExpired = error {
+                let restored = await sessionManager.attemptSilentRestore(notifyOnFailure: false)
+                if restored {
+                    do {
+                        let result = try await authRepository.setupTOTP()
+                        self.state = .secretReceived(secret: result.secret, provisioningURI: result.provisioningURI)
+                        return
+                    } catch {
+                        self.state = .error(error.localizedDescription)
+                        self.errorMessage = error.localizedDescription
+                        return
+                    }
+                }
+            }
+            self.state = .error(error.localizedDescription)
+            self.errorMessage = error.localizedDescription
         } catch {
             self.state = .error(error.localizedDescription)
             self.errorMessage = error.localizedDescription
@@ -49,18 +66,35 @@ public final class SetupTOTPViewModel: ObservableObject {
     public func verify(code: String) async -> Bool {
         state = .loading("Verifying code...")
         do {
-            let tokens = try await authRepository.verifyTOTPSetup(code: code)
-            
-            // On valid TOTP setup, the backend issues fresh tokens indicating the newly added MFA factor.
-            try sessionManager.startSession(tokens: tokens)
-            
-            self.state = .success
-            return true
+            return try await attemptVerify(code: code)
+        } catch let error as AuthError {
+            if case .sessionExpired = error {
+                let restored = await sessionManager.attemptSilentRestore(notifyOnFailure: false)
+                if restored {
+                    do {
+                        return try await attemptVerify(code: code)
+                    } catch {
+                        self.state = .error(error.localizedDescription)
+                        self.errorMessage = error.localizedDescription
+                        return false
+                    }
+                }
+            }
+            self.state = .error(error.localizedDescription)
+            self.errorMessage = error.localizedDescription
+            return false
         } catch {
             self.state = .error(error.localizedDescription)
             self.errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    private func attemptVerify(code: String) async throws -> Bool {
+        let tokens = try await authRepository.verifyTOTPSetup(code: code)
+        try sessionManager.startSession(tokens: tokens)
+        self.state = .success
+        return true
     }
     
     // UI Helpers

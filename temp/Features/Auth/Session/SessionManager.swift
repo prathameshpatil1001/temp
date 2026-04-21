@@ -36,9 +36,15 @@ public final class SessionManager: Sendable {
     
     // MARK: - Lifecycle Auth
     
-    /// Called when the app starts. Attempts to restore the session silently.
-    /// - Returns: `true` if a valid session was restored or exists, `false` otherwise.
-    public func attemptSilentRestore() async -> Bool {
+    /// Attempts to silently restore the session by refreshing the access token.
+    ///
+    /// - Parameter notifyOnFailure: When `true` (the default), posts the global
+    ///   `.sessionExpired` notification if the refresh fails, causing the app to
+    ///   route the user to the login screen. Pass `false` when the caller handles
+    ///   the failure itself (e.g. TOTP setup, which retries locally and must not
+    ///   trigger a premature logout).
+    /// - Returns: `true` if a valid session was restored, `false` otherwise.
+    public func attemptSilentRestore(notifyOnFailure: Bool = true) async -> Bool {
         if !tokenStore.hasStoredSession() {
             return false
         }
@@ -48,8 +54,11 @@ public final class SessionManager: Sendable {
             try tokenStore.save(accessToken: tokens.accessToken, refreshToken: tokens.refreshToken)
             return true
         } catch {
-            // If the refresh fails, the session is unrecoverable.
-            NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            // Only broadcast the global notification when the caller has no
+            // local recovery path – i.e. this is a true, unrecoverable expiry.
+            if notifyOnFailure {
+                NotificationCenter.default.post(name: .sessionExpired, object: nil)
+            }
             try? tokenStore.clearAll()
             return false
         }
