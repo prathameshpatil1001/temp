@@ -51,7 +51,7 @@ struct PipelineStage: Identifiable {
 }
 
 // MARK: - Application Model
-struct LoanApplication: Identifiable, Codable {
+struct LoanApplication: Identifiable, Codable, Hashable {
     let id: UUID
     var leadId: UUID?
     var name: String

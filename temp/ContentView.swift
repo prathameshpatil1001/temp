@@ -16,6 +16,18 @@ struct ContentView: View {
     @StateObject private var applicationsViewModel = ApplicationsViewModel()
     @StateObject private var messagesViewModel     = MessagesViewModel()
 
+    init() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(Color.surfacePrimary)
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color.brandBlue)
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor(Color.brandBlue)]
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor(Color.textTertiary)
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor(Color.textTertiary)]
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
 

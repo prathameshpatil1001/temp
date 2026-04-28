@@ -40,30 +40,33 @@ public enum ChatError: Error, LocalizedError {
         }
     }
 
-    static func from(_ error: Error) -> ChatError {
-        if let rpc = error as? RPCError {
-            let message = rpc.message.lowercased()
+static func from(_ error: Error) -> ChatError {
+            if let rpc = error as? RPCError {
+                let message = rpc.message.lowercased()
 
-            if message.contains("unauthenticated") || message.contains("not authenticated") {
-                return .unauthenticated
-            }
-            if message.contains("permission denied") || message.contains("permission") {
-                return .permissionDenied
-            }
-            if message.contains("not found") || message.contains("room") {
-                return .roomNotFound
-            }
-            if message.contains("invalid") && message.contains("room") {
-                return .invalidRoomID
-            }
-            if message.contains("invalid") && message.contains("user") {
-                return .invalidUserID
-            }
+                if message.contains("unauthenticated") || message.contains("not authenticated") {
+                    return .unauthenticated
+                }
+                if message.contains("permission denied") || message.contains("permission") {
+                    return .permissionDenied
+                }
+                if message.contains("invalid") && message.contains("room") {
+                    return .invalidRoomID
+                }
+                if message.contains("invalid") && message.contains("user") {
+                    return .invalidUserID
+                }
+                if message.contains("not found") || message.contains("room") {
+                    return .roomNotFound
+                }
 
-            return .underlyingError(rpc)
+                return .underlyingError(rpc)
+            }
+            if let chatError = error as? ChatError {
+                return chatError
+            }
+            return .unknown
         }
-        return .unknown
-    }
 }
 
 // MARK: - ChatGRPCClientProtocol

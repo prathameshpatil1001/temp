@@ -34,6 +34,15 @@ public final class ChatService: ChatServiceProtocol {
         self.grpcClient = grpcClient
     }
 
+    // MARK: - Auth Helper
+
+    private func requireAccessToken() throws -> String {
+        guard let token = try TokenStore.shared.accessToken(), !token.isEmpty else {
+            throw ChatError.unauthenticated
+        }
+        return token
+    }
+
     // MARK: - User Discovery
 
     public func listEligibleUsers(
@@ -41,13 +50,13 @@ public final class ChatService: ChatServiceProtocol {
         limit: Int = 20,
         offset: Int = 0
     ) async throws -> [ChatUser] {
+        let accessToken = try requireAccessToken()
         let request = Chat_V1_ListChatEligibleUsersRequest.with {
             $0.query = query
             $0.limit = Int32(limit)
             $0.offset = Int32(offset)
         }
 
-        let accessToken = try TokenStore.shared.accessToken() ?? ""
         let (options, metadata) = AuthCallOptionsFactory.authenticated(accessToken: accessToken)
         let response = try await grpcClient.listChatEligibleUsers(
             request: request,
@@ -64,6 +73,7 @@ public final class ChatService: ChatServiceProtocol {
         targetUserID: String,
         contextApplicationID: String? = nil
     ) async throws -> ChatRoom {
+        let accessToken = try requireAccessToken()
         let request = Chat_V1_CreateOrGetDirectRoomRequest.with {
             $0.targetUserID = targetUserID
             if let appID = contextApplicationID {
@@ -71,7 +81,6 @@ public final class ChatService: ChatServiceProtocol {
             }
         }
 
-        let accessToken = try TokenStore.shared.accessToken() ?? ""
         let (options, metadata) = AuthCallOptionsFactory.authenticated(accessToken: accessToken)
         let response = try await grpcClient.createOrGetDirectRoom(
             request: request,
@@ -86,12 +95,12 @@ public final class ChatService: ChatServiceProtocol {
         limit: Int = 20,
         offset: Int = 0
     ) async throws -> [ChatRoom] {
+        let accessToken = try requireAccessToken()
         let request = Chat_V1_ListMyChatRoomsRequest.with {
             $0.limit = Int32(limit)
             $0.offset = Int32(offset)
         }
 
-        let accessToken = try TokenStore.shared.accessToken() ?? ""
         let (options, metadata) = AuthCallOptionsFactory.authenticated(accessToken: accessToken)
         let response = try await grpcClient.listMyChatRooms(
             request: request,
@@ -109,13 +118,13 @@ public final class ChatService: ChatServiceProtocol {
         limit: Int = 50,
         offset: Int = 0
     ) async throws -> [ChatDomainMessage] {
+        let accessToken = try requireAccessToken()
         let request = Chat_V1_ListRoomMessagesRequest.with {
             $0.roomID = roomID
             $0.limit = Int32(limit)
             $0.offset = Int32(offset)
         }
 
-        let accessToken = try TokenStore.shared.accessToken() ?? ""
         let (options, metadata) = AuthCallOptionsFactory.authenticated(accessToken: accessToken)
         let response = try await grpcClient.listRoomMessages(
             request: request,
@@ -132,6 +141,7 @@ public final class ChatService: ChatServiceProtocol {
         messageType: ChatMessageType = .text,
         metadataJSON: String? = nil
     ) async throws -> ChatDomainMessage {
+        let accessToken = try requireAccessToken()
         let request = Chat_V1_SendMessageRequest.with {
             $0.roomID = roomID
             $0.messageType = messageType.protoValue
@@ -141,7 +151,6 @@ public final class ChatService: ChatServiceProtocol {
             }
         }
 
-        let accessToken = try TokenStore.shared.accessToken() ?? ""
         let (options, metadata) = AuthCallOptionsFactory.authenticated(accessToken: accessToken)
         let response = try await grpcClient.sendMessage(
             request: request,
@@ -161,6 +170,14 @@ public final class ChatService: ChatServiceProtocol {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
+                    let accessToken: String
+                    do {
+                        accessToken = try self.requireAccessToken()
+                    } catch {
+                        continuation.finish(throwing: error)
+                        return
+                    }
+
                     let request = Chat_V1_SubscribeRoomMessagesRequest.with {
                         $0.roomID = roomID
                         if let msgID = afterMessageID {
@@ -168,7 +185,6 @@ public final class ChatService: ChatServiceProtocol {
                         }
                     }
 
-                    let accessToken = try TokenStore.shared.accessToken() ?? ""
                     let (options, metadata) = AuthCallOptionsFactory.authenticated(accessToken: accessToken)
                     let protoStream = try await grpcClient.subscribeRoomMessages(
                         request: request,
@@ -183,7 +199,7 @@ public final class ChatService: ChatServiceProtocol {
 
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    continuation.finish(throwing: ChatError.from(error))
                 }
             }
         }

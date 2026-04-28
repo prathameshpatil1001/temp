@@ -373,11 +373,11 @@ struct BrandBar: View {
             }
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("LoanOS")
+                Text("Karz")
                     .font(.system(size: 19, weight: .bold, design: .rounded))
                     .foregroundColor(DS.textPrimary)
 
-                Text("Borrower Portal")
+                Text("DST Portal")
                     .font(.system(size: 11, design: .rounded))
                     .foregroundColor(DS.textSecondary)
             }

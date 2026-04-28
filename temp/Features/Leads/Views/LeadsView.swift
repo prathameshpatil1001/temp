@@ -10,18 +10,23 @@ struct LeadsView: View {
         NavigationStack(path: $navPath) {
             ZStack(alignment: .top) {
                 Color.surfaceSecondary.ignoresSafeArea()
+                DSTHeaderGradientBackground(height: 230)
 
                 VStack(spacing: 0) {
+                    leadsHero
+                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.top, AppSpacing.sm)
+
                     stickyHeader
 
                     if !viewModel.isLoading {
                         HStack {
                             Text(viewModel.leadCountText)
-                                .font(AppFont.subhead())
+                                .font(AppFont.subheadMed())
                                 .foregroundColor(Color.textSecondary)
                             Spacer()
                         }
-                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.horizontal, AppSpacing.lg)
                         .padding(.top, AppSpacing.xs)
                         .padding(.bottom, AppSpacing.xs)
                     }
@@ -68,6 +73,35 @@ struct LeadsView: View {
                 viewModel.loadLeads()
             }
         }
+    }
+
+    private var leadsHero: some View {
+        DSTSurfaceCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                DSTSectionTitle("Lead Pipeline", subtitle: "Capture prospects, move them forward quickly, and keep every sales touchpoint visible.")
+
+                HStack(spacing: AppSpacing.sm) {
+                    leadMetric(title: "Total Leads", value: "\(viewModel.leads.count)", valueColor: Color.textPrimary)
+                    leadMetric(title: "Submitted", value: "\(viewModel.leads.filter { $0.status == .submitted }.count)", valueColor: Color.brandBlue)
+                    leadMetric(title: "Approved", value: "\(viewModel.leads.filter { $0.status == .approved }.count)", valueColor: Color.statusApproved)
+                }
+            }
+        }
+    }
+
+    private func leadMetric(title: String, value: String, valueColor: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(AppFont.title2())
+                .foregroundColor(valueColor)
+            Text(title)
+                .font(AppFont.caption())
+                .foregroundColor(Color.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AppSpacing.sm)
+        .background(Color.brandBlueSoft.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
     }
 
     // MARK: - Sticky Header
@@ -142,7 +176,7 @@ struct LeadsView: View {
             }
             .padding(.bottom, AppSpacing.xs)
         }
-        .background(Color.surfaceSecondary)
+        .background(Color.clear)
     }
 
     // MARK: - List Content
@@ -192,6 +226,7 @@ struct LeadsView: View {
                 RoundedRectangle(cornerRadius: AppRadius.md)
                     .strokeBorder(Color.borderLight, lineWidth: 1)
             )
+            .cardShadow()
             .padding(.horizontal, AppSpacing.md)
             .padding(.bottom, AppSpacing.xl)
         }
@@ -275,4 +310,3 @@ struct LeadRowContent: View {
 #Preview {
     LeadsView()
 }
-

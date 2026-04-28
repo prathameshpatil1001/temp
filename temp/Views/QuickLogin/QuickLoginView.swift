@@ -363,39 +363,34 @@ struct QuickLoginView: View {
 
     private func refreshQuickLoginPreferences() {
         guard let accessToken = try? TokenStore.shared.accessToken(),
-              let userID = JWTClaimsDecoder.subject(from: accessToken) else {
-            isBiometricQuickLoginEnabled = false
-            isAuthenticatorQuickLoginEnabled = false
-            return
-        }
-
-        isBiometricQuickLoginEnabled = QuickLoginPreferencesStore.shared.isBiometricEnabled(for: userID)
-        isAuthenticatorQuickLoginEnabled = QuickLoginPreferencesStore.shared.isAuthenticatorEnabled(for: userID)
-        showTOTP = !isBiometricQuickLoginEnabled && isAuthenticatorQuickLoginEnabled
+              let userID = JWTClaimsDecoder.subject(from: accessToken)
+        else { return }
+        isBiometricQuickLoginEnabled = QuickLoginPreferencesStore.shared
+            .isBiometricEnabled(for: userID)
+        isAuthenticatorQuickLoginEnabled = QuickLoginPreferencesStore.shared
+            .isAuthenticatorEnabled(for: userID)
     }
 
     private func requestOTP(factor: String) {
+        guard !isAuthenticating else { return }
         isAuthenticating = true
         bioError = ""
-
         Task {
             do {
                 let result = try await session.beginQuickReopenOTP(factor: factor)
-                mfaSessionID = result.mfaSessionID
-                otpFactor = factor
-                otpTarget = result.challengeTarget.isEmpty ? (factor == "email_otp" ? "your email" : "your phone") : result.challengeTarget
-                otpCode = ""
-                showTOTP = false
-                showOTPEntry = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    otpFocused = true
+                await MainActor.run {
+                    mfaSessionID = result.mfaSessionID  // WAS MISSING — now assigned
+                    otpFactor    = factor
+                    otpTarget    = result.challengeTarget
+                    showOTPEntry = true
+                    isAuthenticating = false
                 }
             } catch {
-                if registerFailedAttempt() {
-                    bioError = "Failed to send verification code: \(error.localizedDescription)"
+                await MainActor.run {
+                    bioError = error.localizedDescription
+                    isAuthenticating = false
                 }
             }
-            isAuthenticating = false
         }
     }
 

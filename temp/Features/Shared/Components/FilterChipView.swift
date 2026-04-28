@@ -23,12 +23,19 @@ struct FilterChipView: View {
                 }
             }
             .foregroundColor(isSelected ? .white : Color.textSecondary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(
                 Group {
                     if isSelected {
-                        Capsule().fill(Color.brandBlue)
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.mainBlue, Color.secondaryBlue],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
                     } else {
                         Capsule().fill(Color.surfacePrimary)
                     }
@@ -44,5 +51,6 @@ struct FilterChipView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .shadow(color: isSelected ? Color.mainBlue.opacity(0.14) : .clear, radius: 8, x: 0, y: 3)
     }
 }

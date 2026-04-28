@@ -22,16 +22,16 @@ extension Color {
         )
     }
 
-    // New Brand Palette
-    static let mainBlue      = Color(hex: "#002FDC")
-    static let secondaryBlue = Color(hex: "#264BE3")
+    // Borrower-aligned Brand Palette
+    static let mainBlue      = Color(hex: "#1A56E8")
+    static let secondaryBlue = Color(hex: "#0E3BB5")
     static let skyBlue       = Color(hex: "#5B8CFF")
-    static let headerBlueTop = Color(hex: "#4E68F5")
-    static let headerBlueMid = Color(hex: "#4C72F6")
-    static let headerBlueBottom = Color(hex: "#6F92FF")
-    static let homeBackground = Color(hex: "#EEF3FB")
-    static let lightBlue     = Color(hex: "#E8F2FA")
-    static let alertRed      = Color(hex: "#ED1E48")
+    static let headerBlueTop = Color(hex: "#5C83F6")
+    static let headerBlueMid = Color(hex: "#7FA1FA")
+    static let headerBlueBottom = Color(hex: "#B9CCFB")
+    static let homeBackground = Color(hex: "#F8F9FC")
+    static let lightBlue     = Color(hex: "#EEF2FD")
+    static let alertRed      = Color(hex: "#EF4444")
 
     // Mapped Identifiers
     static let brandBlue      = mainBlue
@@ -41,44 +41,45 @@ extension Color {
     static let statusNew      = mainBlue
     static let statusNewBg    = lightBlue
     
-    static let statusPending  = Color(hex: "#D97706")
-    static let statusPendingBg = Color(hex: "#FDF6EC")
+    static let statusPending  = Color(hex: "#F59E0B")
+    static let statusPendingBg = Color(hex: "#FFF7E8")
     
     static let statusSubmitted = mainBlue
     static let statusSubmittedBg = lightBlue
     
-    static let statusRejected = Color(hex: "#C81E1E")
-    static let statusRejectedBg = Color(hex: "#FEF2F2")
+    static let statusRejected = alertRed
+    static let statusRejectedBg = Color(hex: "#FEECEE")
     
-    static let statusApproved = Color(hex: "#057A55")
-    static let statusApprovedBg = Color(hex: "#E8F5EF")
+    static let statusApproved = Color(hex: "#00C48C")
+    static let statusApprovedBg = Color(hex: "#EAFBF5")
     
-    static let statusDisbursed = Color(hex: "#057A55")
-    static let statusDisbursedBg = Color(hex: "#E8F5EF")
+    static let statusDisbursed = Color(hex: "#00C48C")
+    static let statusDisbursedBg = Color(hex: "#EAFBF5")
 
     // Neutral
-    static let textPrimary    = Color(hex: "#111928")
-    static let textSecondary  = Color(hex: "#6B7280")
-    static let textTertiary   = Color(hex: "#9CA3AF")
-    static let surfacePrimary = Color(hex: "#FFFFFF")
+    static let textPrimary    = Color(hex: "#0F1B3D")
+    static let textSecondary  = Color(hex: "#6B7A99")
+    static let textTertiary   = Color(hex: "#9AA6BF")
+    static let surfacePrimary = Color.white
     static let surfaceSecondary = homeBackground
-    static let surfaceTertiary = Color(hex: "#F3F4F6")
-    static let borderLight    = Color(hex: "#E5E7EB")
-    static let borderMedium   = Color(hex: "#D1D5DB")
+    static let surfaceTertiary = Color(hex: "#F1F4FB")
+    static let borderLight    = Color(hex: "#E2E6F0")
+    static let borderMedium   = Color(hex: "#D5DCEB")
+    static let surfaceGlass   = Color.white.opacity(0.84)
 }
 
 // MARK: - Typography
 struct AppFont {
-    static func largeTitle()   -> Font { .system(size: 28, weight: .bold,     design: .default) }
-    static func title()        -> Font { .system(size: 22, weight: .bold,     design: .default) }
-    static func title2()       -> Font { .system(size: 20, weight: .semibold, design: .default) }
-    static func headline()     -> Font { .system(size: 16, weight: .semibold, design: .default) }
-    static func body()         -> Font { .system(size: 15, weight: .regular,  design: .default) }
-    static func bodyMedium()   -> Font { .system(size: 15, weight: .medium,   design: .default) }
-    static func subhead()      -> Font { .system(size: 13, weight: .regular,  design: .default) }
-    static func subheadMed()   -> Font { .system(size: 13, weight: .medium,   design: .default) }
-    static func caption()      -> Font { .system(size: 12, weight: .regular,  design: .default) }
-    static func captionMed()   -> Font { .system(size: 12, weight: .medium,   design: .default) }
+    static func largeTitle()   -> Font { .system(size: 28, weight: .bold,     design: .rounded) }
+    static func title()        -> Font { .system(size: 22, weight: .bold,     design: .rounded) }
+    static func title2()       -> Font { .system(size: 20, weight: .semibold, design: .rounded) }
+    static func headline()     -> Font { .system(size: 16, weight: .semibold, design: .rounded) }
+    static func body()         -> Font { .system(size: 15, weight: .regular,  design: .rounded) }
+    static func bodyMedium()   -> Font { .system(size: 15, weight: .medium,   design: .rounded) }
+    static func subhead()      -> Font { .system(size: 13, weight: .regular,  design: .rounded) }
+    static func subheadMed()   -> Font { .system(size: 13, weight: .medium,   design: .rounded) }
+    static func caption()      -> Font { .system(size: 12, weight: .regular,  design: .rounded) }
+    static func captionMed()   -> Font { .system(size: 12, weight: .medium,   design: .rounded) }
     static func mono()         -> Font { .system(size: 13, weight: .regular,  design: .monospaced) }
 }
 
@@ -95,9 +96,9 @@ struct AppSpacing {
 
 // MARK: - Corner Radius
 struct AppRadius {
-    static let sm: CGFloat  = 8
-    static let md: CGFloat  = 12
-    static let lg: CGFloat  = 16
+    static let sm: CGFloat  = 10
+    static let md: CGFloat  = 16
+    static let lg: CGFloat  = 20
     static let xl: CGFloat  = 24
     static let full: CGFloat = 999
 }
@@ -106,6 +107,7 @@ struct AppRadius {
 struct AppShadow {
     static let card = Shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
     static let soft = Shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+    static let elevated = Shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 4)
 }
 
 struct Shadow {
@@ -121,5 +123,8 @@ extension View {
     }
     func softShadow() -> some View {
         self.shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+    }
+    func elevatedCardShadow() -> some View {
+        self.shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 4)
     }
 }

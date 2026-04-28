@@ -83,6 +83,7 @@ struct Lead: Identifiable, Codable, Hashable {
     var borrowerProfileID: String?
     var borrowerUserID: String?
     var loanType: LoanType
+    var loanProductID: String?      // backend product ID chosen at lead creation
     var loanAmount: Double
     var status: LeadStatus
     var createdAt: Date
@@ -105,6 +106,7 @@ struct Lead: Identifiable, Codable, Hashable {
         borrowerProfileID: String? = nil,
         borrowerUserID: String? = nil,
         loanType: LoanType,
+        loanProductID: String? = nil,
         loanAmount: Double,
         status: LeadStatus,
         createdAt: Date,
@@ -124,6 +126,7 @@ struct Lead: Identifiable, Codable, Hashable {
         self.borrowerProfileID = borrowerProfileID
         self.borrowerUserID = borrowerUserID
         self.loanType = loanType
+        self.loanProductID = loanProductID
         self.loanAmount = loanAmount
         self.status = status
         self.createdAt = createdAt
@@ -185,5 +188,12 @@ struct LeadFilter: Identifiable, Equatable {
     static let all = LeadFilter(title: "All", status: nil)
     static var allFilters: [LeadFilter] {
         [.all] + LeadStatus.allCases.map { LeadFilter(title: $0.rawValue, status: $0) }
+    }
+    static var leadsTabFilters: [LeadFilter] {
+        [
+            LeadFilter(title: "All",         status: nil),
+            LeadFilter(title: "New",          status: .new),
+            LeadFilter(title: "Docs Pending", status: .docsPending),
+        ]
     }
 }

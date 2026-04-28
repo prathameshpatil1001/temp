@@ -4,6 +4,10 @@ import SwiftUI
 struct DirectSalesTeamAppApp: App {
     @StateObject private var session = SessionStore()
 
+    init() {
+        _ = DatabaseManager.shared  // Runs migration, surfaces errors at launch not later
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {

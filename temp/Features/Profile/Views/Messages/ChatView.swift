@@ -13,9 +13,22 @@ struct ChatView: View {
         VStack(spacing: 0) {
             chatHeader
 
+            if let error = vm.errorMessage {
+                errorBanner(message: error)
+            }
+
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 4) {
+                        if vm.hasMoreMessages {
+                            Button("Load older messages") {
+                                vm.loadOlderMessages()
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(Color.brandBlue)
+                            .padding(.vertical, 8)
+                        }
+
                         ForEach(vm.groupedMessages, id: \.date) { group in
                             DateSeparator(label: group.date)
 
@@ -93,6 +106,26 @@ struct ChatView: View {
                 .frame(height: 1),
             alignment: .bottom
         )
+    }
+
+    private func errorBanner(message: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.orange)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(Color.textSecondary)
+                .lineLimit(2)
+            Spacer()
+            Button("Retry") {
+                vm.refresh()
+            }
+            .font(.caption)
+            .foregroundStyle(Color.brandBlue)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.orange.opacity(0.1))
     }
 
     private var composerBar: some View {

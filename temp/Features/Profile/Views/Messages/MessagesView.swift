@@ -5,100 +5,175 @@ import SwiftUI
 struct MessagesView: View {
 
     @ObservedObject var vm: MessagesViewModel
+    @State private var draftParticipant: ThreadParticipant?
     @State private var draftLead: LeadMessagingConnection?
-    @State private var draftOfficer: ThreadParticipant?
     @State private var openingMessage: String = ""
 
     var body: some View {
         NavigationStack {
-            Group {
-                if vm.isLoading {
-                    ProgressView("Loading messages…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if vm.threads.isEmpty {
-                    emptyState
-                } else {
-                    threadList
-                }
-            }
-            .background(Color.surfaceSecondary)
-            .navigationTitle("Messages")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        vm.showComposeSheet = true
-                    } label: {
-                        Image(systemName: "square.and.pencil")
+            ZStack(alignment: .top) {
+                Color.surfaceSecondary.ignoresSafeArea()
+                DSTHeaderGradientBackground(height: 230)
+
+                Group {
+                    if vm.isLoading {
+                        ProgressView("Loading messages…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if vm.threads.isEmpty {
+                        VStack(spacing: AppSpacing.md) {
+                            messagesHero
+                                .padding(.horizontal, AppSpacing.md)
+                                .padding(.top, AppSpacing.sm)
+                            emptyState
+                                .padding(.horizontal, AppSpacing.md)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: AppSpacing.md) {
+                                messagesHero
+                                if !vm.connectableLeads.isEmpty {
+                                    ConnectionHubCard(
+                                        pendingConnections: vm.connectableLeads.count,
+                                        onAddMessage: { vm.showComposeSheet = true }
+                                    )
+                                }
+                                threadList
+                            }
+                            .padding(.horizontal, AppSpacing.md)
+                            .padding(.top, AppSpacing.sm)
+                            .padding(.bottom, AppSpacing.xl)
+                        }
                     }
                 }
-            }
-            .sheet(isPresented: $vm.showComposeSheet) {
-                NewConversationSheet(
-                    leads: vm.connectableLeads,
-                    officers: vm.officerDirectory,
-                    selectedLead: $draftLead,
-                    selectedOfficer: $draftOfficer,
-                    openingMessage: $openingMessage,
-                    onCreate: {
-                        guard let lead = draftLead, let officer = draftOfficer else { return }
-                        vm.createThread(lead: lead, participant: officer, openingMessage: openingMessage)
-                        draftLead = nil
-                        draftOfficer = nil
-                        openingMessage = ""
-                        vm.showComposeSheet = false
+                .background(Color.clear)
+                .navigationTitle("Messages")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            vm.showComposeSheet = true
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
                     }
-                )
+                }
+                .sheet(isPresented: $vm.showComposeSheet) {
+                    NewConversationSheet(
+                        participants: vm.eligibleParticipants,
+                        leads: vm.connectableLeads,
+                        selectedParticipant: $draftParticipant,
+                        selectedLead: $draftLead,
+                        openingMessage: $openingMessage,
+                        onCreate: {
+                            guard let participant = draftParticipant else { return }
+                            let lead = draftLead
+                            let message = openingMessage
+                            draftParticipant = nil
+                            draftLead = nil
+                            openingMessage = ""
+                            vm.showComposeSheet = false
+                            Task {
+                                await vm.createThread(
+                                    lead: lead,
+                                    participant: participant,
+                                    openingMessage: message
+                                )
+                            }
+                        }
+                    )
+                }
+                .alert("Messages Error", isPresented: Binding(
+                    get: { vm.errorMessage != nil },
+                    set: { if !$0 { vm.errorMessage = nil } }
+                )) {
+                    Button("Retry") { vm.refresh() }
+                    Button("Dismiss", role: .cancel) { vm.errorMessage = nil }
+                } message: {
+                    Text(vm.errorMessage ?? "")
+                }
             }
         }
     }
 
-    private var threadList: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(vm.threads) { thread in
-                    NavigationLink {
-                        ChatView(
-                            vm: ChatViewModel(
-                                thread: thread,
-                                onMessagesUpdated: { messages in
-                                    vm.updateThread(thread.id, messages: messages)
-                                }
-                            )
-                        )
-                        .onAppear { vm.selectThread(thread) }
-                    } label: {
-                        ThreadRow(thread: thread)
-                    }
-                    .buttonStyle(.plain)
+    private var messagesHero: some View {
+        DSTSurfaceCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                DSTSectionTitle("Conversation Hub", subtitle: "Keep every borrower and officer exchange clear, contextual, and easy to continue.")
+                HStack(spacing: AppSpacing.sm) {
+                    summaryMetric(title: "Threads", value: "\(vm.threads.count)", color: Color.textPrimary)
+                    summaryMetric(title: "Unread", value: "\(vm.totalUnread)", color: Color.brandBlue)
+                    summaryMetric(title: "Pending Links", value: "\(vm.connectableLeads.count)", color: Color.statusPending)
                 }
-
-                Text("Messages are end-to-end monitored for compliance")
-                    .font(.caption)
-                    .foregroundStyle(Color.textTertiary)
-                    .padding(.vertical, 24)
-                    .frame(maxWidth: .infinity)
             }
-            .padding(.top, 16)
-            .padding(.bottom, 20)
+        }
+    }
+
+    private func summaryMetric(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(AppFont.title2())
+                .foregroundColor(color)
+            Text(title)
+                .font(AppFont.caption())
+                .foregroundColor(Color.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AppSpacing.sm)
+        .background(Color.brandBlueSoft.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+    }
+
+    private var threadList: some View {
+        VStack(spacing: 12) {
+            ForEach(vm.threads) { thread in
+                NavigationLink {
+                    ChatView(
+                        vm: ChatViewModel(
+                            thread: thread,
+                            onMessagesUpdated: { messages in
+                                vm.updateThread(thread.id, messages: messages)
+                            }
+                        )
+                    )
+                    .onAppear { vm.selectThread(thread) }
+                } label: {
+                    ThreadRow(thread: thread)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text("Messages are end-to-end monitored for compliance")
+                .font(.caption)
+                .foregroundStyle(Color.textTertiary)
+                .padding(.vertical, 24)
+                .frame(maxWidth: .infinity)
         }
     }
 
     private var emptyState: some View {
         VStack(spacing: 18) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 44))
-                .foregroundStyle(.tertiary)
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .font(.system(size: 38))
+                .foregroundStyle(Color.brandBlue)
             Text("No Messages")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+                .font(AppFont.title2())
+                .foregroundStyle(Color.textPrimary)
             Text("Connect a lead to a loan officer and the conversation will appear here.")
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
+                .font(AppFont.subhead())
+                .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 48)
+                .padding(.horizontal, 32)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, AppSpacing.xxl)
+        .background(Color.surfacePrimary)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                .stroke(Color.borderLight, lineWidth: 1)
+        )
+        .cardShadow()
     }
 }
 
@@ -161,8 +236,8 @@ struct ThreadRow: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.borderLight, lineWidth: 1)
         )
-        .padding(.horizontal, 16)
         .contentShape(Rectangle())
+        .cardShadow()
     }
 }
 
@@ -202,7 +277,13 @@ struct ConnectionHubCard: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(Color.brandBlue)
+                .background(
+                    LinearGradient(
+                        colors: [Color.mainBlue, Color.secondaryBlue],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -218,52 +299,71 @@ struct ConnectionHubCard: View {
 }
 
 struct NewConversationSheet: View {
+    let participants: [ThreadParticipant]
     let leads: [LeadMessagingConnection]
-    let officers: [ThreadParticipant]
+    @Binding var selectedParticipant: ThreadParticipant?
     @Binding var selectedLead: LeadMessagingConnection?
-    @Binding var selectedOfficer: ThreadParticipant?
     @Binding var openingMessage: String
     let onCreate: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
+    private var selectedRoleNeedsApplication: Bool {
+        guard let participant = selectedParticipant else { return false }
+        return participant.role == .borrower
+    }
+
+    private var canCreate: Bool {
+        guard let participant = selectedParticipant else { return false }
+        if participant.role == .borrower {
+            return selectedLead != nil
+        }
+        return true
+    }
+
     var body: some View {
         NavigationStack {
             Form {
-                Section("Lead") {
-                    Picker(
-                        "Lead",
-                        selection: Binding(
-                            get: { selectedLead?.id },
-                            set: { newID in selectedLead = leads.first(where: { $0.id == newID }) }
-                        )
-                    ) {
-                        Text("Select Lead").tag(UUID?.none)
-                        ForEach(leads) { lead in
-                            Text("\(lead.leadName) · \(lead.applicationRef)")
-                                .tag(Optional(lead.id))
+                Section("Start conversation with") {
+                    if participants.isEmpty {
+                        Text("Loading contacts…")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Picker(
+                            "Contact",
+                            selection: $selectedParticipant
+                        ) {
+                            Text("Select a contact").tag(nil as ThreadParticipant?)
+                            ForEach(participants) { participant in
+                                Text("\(participant.name) · \(participant.role.rawValue)")
+                                    .tag(Optional(participant))
+                            }
                         }
                     }
                 }
 
-                Section("Loan Officer") {
-                    Picker(
-                        "Officer",
-                        selection: Binding(
-                            get: { selectedOfficer?.id },
-                            set: { newID in selectedOfficer = officers.first(where: { $0.id == newID }) }
-                        )
-                    ) {
-                        Text("Select Officer").tag(UUID?.none)
-                        ForEach(officers) { officer in
-                            Text("\(officer.name) · \(officer.role.rawValue)")
-                                .tag(Optional(officer.id))
+                if selectedRoleNeedsApplication {
+                    Section("Linked Application") {
+                        if leads.isEmpty {
+                            Text("No applications available for this borrower")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker(
+                                "Application",
+                                selection: $selectedLead
+                            ) {
+                                Text("Select application").tag(nil as LeadMessagingConnection?)
+                                ForEach(leads) { lead in
+                                    Text("\(lead.leadName) · \(lead.loanType)")
+                                        .tag(Optional(lead))
+                                }
+                            }
                         }
                     }
                 }
 
                 Section("Opening Message") {
-                    TextField("Share context for the officer…", text: $openingMessage, axis: .vertical)
+                    TextField("Share context for the conversation…", text: $openingMessage, axis: .vertical)
                         .lineLimit(3...6)
                 }
             }
@@ -278,8 +378,15 @@ struct NewConversationSheet: View {
                         onCreate()
                         dismiss()
                     }
-                    .disabled(selectedLead == nil || selectedOfficer == nil)
+                    .disabled(!canCreate)
                 }
+            }
+        }
+        .onChange(of: selectedParticipant?.role) { _, newRole in
+            if newRole != .borrower {
+                selectedLead = nil
+            } else {
+                selectedLead = nil
             }
         }
     }
@@ -294,6 +401,7 @@ struct ThreadAvatar: View {
         case .manager: return Color(red: 0.9, green: 0.83, blue: 0.97)
         case .system: return Color(.secondarySystemFill)
         case .dstAgent: return Color(.secondarySystemFill)
+        case .borrower: return Color(red: 0.85, green: 0.95, blue: 0.92)
         }
     }
 
@@ -303,6 +411,7 @@ struct ThreadAvatar: View {
         case .manager: return .purple
         case .system: return .secondary
         case .dstAgent: return .secondary
+        case .borrower: return Color(red: 0.0, green: 0.45, blue: 0.39)
         }
     }
 

@@ -14,11 +14,16 @@ struct LeadDetailView: View {
         self.lead = lead
         self.onStatusUpdate = onStatusUpdate
         self.onLeadSave = onLeadSave
-        _vm = StateObject(wrappedValue: LeadDetailViewModel(
-            lead: lead,
-            onStatusUpdate: onStatusUpdate
-        ))
-        _loanAppVM = StateObject(wrappedValue: LoanApplicationViewModel(lead: lead))
+        
+        let detailVM = LeadDetailViewModel(lead: lead, onStatusUpdate: onStatusUpdate)
+        _vm = StateObject(wrappedValue: detailVM)
+        
+        let appVM = LoanApplicationViewModel(lead: lead)
+        appVM.onDocumentUploaded = { [weak detailVM] docID, fileName, mediaFileID in
+            detailVM?.markDocumentUploaded(id: docID, fileName: fileName, mediaFileID: mediaFileID)
+            detailVM?.verifyUploadedDocument(id: docID)
+        }
+        _loanAppVM = StateObject(wrappedValue: appVM)
     }
 
     var body: some View {
@@ -75,11 +80,11 @@ struct LeadDetailView: View {
             Task {
                 await loanAppVM.fetchLoanProducts()
                 await loanAppVM.fetchBranches()
+                // Sync required docs from the product chosen at lead-creation time
+                vm.syncRequiredDocuments(from: loanAppVM.requiredDocuments(for: lead.loanProductID))
             }
             loanAppVM.onLeadUpdated = { [weak vm] updatedLead in
-                // Persist to backend/local store
                 onLeadSave?(updatedLead)
-                // Sync document states in detail VM
                 vm?.syncKYCDocuments(
                     aadhaarVerified: updatedLead.isAadhaarKycVerified,
                     panVerified: updatedLead.isPanKycVerified,
@@ -249,46 +254,32 @@ struct LeadDetailView: View {
         VStack(spacing: 0) {
             Divider()
             
-            if vm.canSubmit {
-                if !loanAppVM.loanProducts.isEmpty || !loanAppVM.branches.isEmpty {
-                    VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                        Text("Application Details")
-                            .font(AppFont.caption())
-                            .foregroundColor(Color.textSecondary)
-                            .padding(.horizontal, AppSpacing.md)
-                            .padding(.top, AppSpacing.sm)
-                        
-                        if !loanAppVM.loanProducts.isEmpty {
-                            Picker("Loan Product", selection: $loanAppVM.selectedProductID) {
-                                ForEach(loanAppVM.loanProducts) { product in
-                                    Text("\(product.name) (\(product.baseInterestRate)% interest)")
-                                        .tag(Optional(product.id))
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .tint(Color.textPrimary)
-                            .padding(.horizontal, AppSpacing.sm)
-                        }
-                        
-                        if !loanAppVM.branches.isEmpty {
-                            Picker("Branch", selection: $loanAppVM.selectedBranchID) {
-                                ForEach(loanAppVM.branches) { branch in
-                                    Text("\(branch.name) (\(branch.city))")
-                                        .tag(Optional(branch.id))
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .tint(Color.textPrimary)
-                            .padding(.horizontal, AppSpacing.sm)
+            if vm.canSubmit && !loanAppVM.branches.isEmpty {
+                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                    Text("Select Branch")
+                        .font(AppFont.caption())
+                        .foregroundColor(Color.textSecondary)
+                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.top, AppSpacing.sm)
+                    
+                    Picker("Branch", selection: $loanAppVM.selectedBranchID) {
+                        ForEach(loanAppVM.branches) { branch in
+                            Text("\(branch.name) (\(branch.city))")
+                                .tag(Optional(branch.id))
                         }
                     }
-                    .padding(.bottom, AppSpacing.xs)
+                    .pickerStyle(.menu)
+                    .tint(Color.textPrimary)
+                    .padding(.horizontal, AppSpacing.sm)
                 }
+                .padding(.bottom, AppSpacing.xs)
             }
             
             Button {
                 if vm.canSubmit {
-                    guard let productID = loanAppVM.selectedProductID else {
+                    // Use product ID set at lead-creation; fall back to picker selection
+                    let productID = lead.loanProductID ?? loanAppVM.selectedProductID
+                    guard let productID else {
                         loanAppVM.submissionError = "Please select a loan product first."
                         return
                     }

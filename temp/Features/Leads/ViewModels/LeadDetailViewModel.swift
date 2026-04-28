@@ -16,42 +16,51 @@ final class LeadDetailViewModel: ObservableObject {
 
     var uploadedCount: Int { documents.filter { $0.status.isUploaded }.count }
     var totalCount: Int    { documents.count }
-    /// KYC docs must be .verified; supporting docs must be at least .uploaded (not .notUploaded / .requested)
+    /// All docs must be at least uploaded (photo captured) before the DST can submit.
+    /// Backend-side KYC verification happens after submission — DST only provides the scan.
     var missingCount: Int {
-        documents.filter { doc in
-            switch doc.kind {
-            case .aadhaar, .pan: return !doc.status.isVerified
-            case .supporting:    return !doc.status.isUploaded
-            }
-        }.count
+        documents.filter { !$0.status.isUploaded }.count
     }
-    var canSubmit: Bool { missingCount == 0 }
+    var canSubmit: Bool { missingCount == 0 && totalCount > 0 }
 
-    init(lead: Lead, onStatusUpdate: ((String, LeadStatus) -> Void)? = nil) {
+    private let documentStore: SQLiteDocumentStore
+    private let leadID: String
+
+    init(lead: Lead, onStatusUpdate: ((String, LeadStatus) -> Void)? = nil,
+         documentStore: SQLiteDocumentStore = SQLiteDocumentStore()) {
         self.lead = lead
+        self.leadID = lead.id
+        self.documentStore = documentStore
         self.onStatusUpdate = onStatusUpdate
-        var docs = LeadDocument.defaultDocuments(for: lead.loanType)
-        // Restore persisted KYC doc states
-        if lead.isAadhaarKycVerified, let idx = docs.firstIndex(where: { $0.kind == .aadhaar }) {
+
+        // Load persisted documents; seeds defaults with stable UUIDs on first open
+        var docs = documentStore.documents(for: lead.id, loanType: lead.loanType)
+
+        // Overlay KYC flags from the Lead model (in case they were verified before
+        // the document store existed, or on a different device)
+        if lead.isAadhaarKycVerified,
+           let idx = docs.firstIndex(where: { $0.kind == .aadhaar }),
+           !docs[idx].status.isVerified {
             docs[idx].markVerified(
                 identityData: IdentityVerificationData(
                     fullName: lead.aadhaarVerifiedName,
                     documentNumber: "",
-                    dateOfBirth: lead.aadhaarVerifiedDOB
-                ),
-                note: "Backend KYC verified"
-            )
+                    dateOfBirth: lead.aadhaarVerifiedDOB),
+                note: "Backend KYC verified")
+            documentStore.save(docs[idx], leadID: lead.id)
         }
-        if lead.isPanKycVerified, let idx = docs.firstIndex(where: { $0.kind == .pan }) {
+        if lead.isPanKycVerified,
+           let idx = docs.firstIndex(where: { $0.kind == .pan }),
+           !docs[idx].status.isVerified {
             docs[idx].markVerified(
                 identityData: IdentityVerificationData(
                     fullName: lead.aadhaarVerifiedName,
                     documentNumber: "",
-                    dateOfBirth: lead.aadhaarVerifiedDOB
-                ),
-                note: "Backend KYC verified"
-            )
+                    dateOfBirth: lead.aadhaarVerifiedDOB),
+                note: "Backend KYC verified")
+            documentStore.save(docs[idx], leadID: lead.id)
         }
+
         self.documents = docs
         self.timeline  = LeadDetailViewModel.makeTimeline(for: lead)
         self.messages  = LeadDetailViewModel.makeMessages()
@@ -64,18 +73,72 @@ final class LeadDetailViewModel: ObservableObject {
                 identityData: IdentityVerificationData(fullName: name, documentNumber: "", dateOfBirth: dob),
                 note: "Backend KYC verified"
             )
+            documentStore.save(documents[idx], leadID: leadID)
         }
         if panVerified, let idx = documents.firstIndex(where: { $0.kind == .pan }), !documents[idx].status.isVerified {
             documents[idx].markVerified(
                 identityData: IdentityVerificationData(fullName: name, documentNumber: "", dateOfBirth: dob),
                 note: "Backend KYC verified"
             )
+            documentStore.save(documents[idx], leadID: leadID)
         }
     }
+
+    /// Merges backend product required-doc definitions into the local document list.
+    /// Merges backend product required-doc definitions into the local document list.
+    /// All docs are .supporting kind in the DST context (upload-only, no KYC flow).
+    func syncRequiredDocuments(from requirements: [ProductRequiredDocument]) {
+        guard !requirements.isEmpty else { return }
+
+        // All backend required docs (identity + income + collateral) need upload slots
+        let existingSupportingCount = documents.filter { $0.kind == .supporting }.count
+        let neededExtra = max(0, requirements.count - existingSupportingCount)
+        guard neededExtra > 0 else { return }
+
+        let existingReqs = requirements.prefix(existingSupportingCount)
+        let newReqs = requirements.dropFirst(existingSupportingCount)
+
+        // Rename existing supporting docs to match product requirement types
+        var supportingIdx = 0
+        for req in existingReqs {
+            while supportingIdx < documents.count && documents[supportingIdx].kind != .supporting {
+                supportingIdx += 1
+            }
+            if supportingIdx < documents.count {
+                let expectedName = req.requirementType.displayName
+                if documents[supportingIdx].name != expectedName {
+                    let updated = LeadDocument(
+                        id: documents[supportingIdx].id,
+                        name: expectedName,
+                        kind: .supporting,
+                        status: documents[supportingIdx].status,
+                        verification: documents[supportingIdx].verification
+                    )
+                    documents[supportingIdx] = updated
+                    documentStore.save(updated, leadID: leadID)
+                }
+                supportingIdx += 1
+            }
+        }
+
+        // Append any genuinely new required docs
+        for req in newReqs {
+            let doc = LeadDocument(
+                id: UUID(),
+                name: req.requirementType.displayName,
+                kind: .supporting,
+                status: .notUploaded
+            )
+            documents.append(doc)
+            documentStore.save(doc, leadID: leadID)
+        }
+    }
+
 
     func requestDocument(id: UUID) {
         guard let idx = documents.firstIndex(where: { $0.id == id }) else { return }
         documents[idx].requestUpload()
+        documentStore.save(documents[idx], leadID: leadID)
 
         appendTimelineEvent(
             title: "\(documents[idx].name) Requested",
@@ -84,9 +147,10 @@ final class LeadDetailViewModel: ObservableObject {
         )
     }
 
-    func markDocumentUploaded(id: UUID, fileName: String) {
+    func markDocumentUploaded(id: UUID, fileName: String, mediaFileID: String? = nil) {
         guard let idx = documents.firstIndex(where: { $0.id == id }) else { return }
         documents[idx].markUploaded(fileName: fileName)
+        documentStore.save(documents[idx], leadID: leadID, mediaFileID: mediaFileID)
 
         appendTimelineEvent(
             title: "\(documents[idx].name) Uploaded",
@@ -98,6 +162,7 @@ final class LeadDetailViewModel: ObservableObject {
     func verifyUploadedDocument(id: UUID) {
         guard let idx = documents.firstIndex(where: { $0.id == id }) else { return }
         documents[idx].markVerified(note: "Quick due diligence completed.")
+        documentStore.save(documents[idx], leadID: leadID)
 
         appendTimelineEvent(
             title: "\(documents[idx].name) Verified",
@@ -112,6 +177,7 @@ final class LeadDetailViewModel: ObservableObject {
             identityData: data,
             note: "Identity details verified via quick due diligence."
         )
+        documentStore.save(documents[idx], leadID: leadID)
 
         appendTimelineEvent(
             title: "\(documents[idx].name) Verified",

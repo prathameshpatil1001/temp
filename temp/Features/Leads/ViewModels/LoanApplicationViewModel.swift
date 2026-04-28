@@ -54,6 +54,7 @@ final class LoanApplicationViewModel: ObservableObject {
     private let branchService: BranchServiceProtocol
     /// Called whenever KYC state changes so the caller can persist the updated Lead.
     var onLeadUpdated: ((Lead) -> Void)?
+    var onDocumentUploaded: ((UUID, String, String) -> Void)?
     
     init(
         lead: Lead,
@@ -204,6 +205,7 @@ final class LoanApplicationViewModel: ObservableObject {
             )
             
             uploadedDocuments[id] = uploadedMedia.mediaID
+            onDocumentUploaded?(id, fileName, uploadedMedia.mediaID)
             uploadingDocumentIDs.remove(id)
             return true
         } catch {
@@ -312,6 +314,13 @@ final class LoanApplicationViewModel: ObservableObject {
         } catch {
             print("Failed to fetch branches: \(error)")
         }
+    }
+
+    /// Returns the required documents for a specific product ID.
+    /// Called by LeadDetailView after products are fetched to pre-populate the document list.
+    func requiredDocuments(for productID: String?) -> [ProductRequiredDocument] {
+        guard let productID else { return [] }
+        return loanProducts.first(where: { $0.id == productID })?.requiredDocuments ?? []
     }
     
     private func persistKYCState() {

@@ -100,43 +100,46 @@ struct LeadDocument: Identifiable {
     }
 
     static func defaultDocuments(for loanType: LoanType) -> [LeadDocument] {
+        // In the DST context, Aadhaar and PAN are collected as photo scans
+        // (the borrower presents the physical card). KYC OTP verification
+        // happens on the backend after submission.
         let base: [LeadDocument] = [
-            LeadDocument(id: UUID(), name: "Aadhaar Card", kind: .aadhaar, status: .notUploaded),
-            LeadDocument(id: UUID(), name: "PAN Card", kind: .pan, status: .notUploaded),
+            LeadDocument(id: UUID(), name: "Aadhaar Card", kind: .supporting, status: .notUploaded),
+            LeadDocument(id: UUID(), name: "PAN Card",     kind: .supporting, status: .notUploaded),
         ]
 
         switch loanType {
         case .home:
             return base + [
-                LeadDocument(id: UUID(), name: "Salary Slips (3M)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Bank Statement (6M)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Property Documents", kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Salary Slips (3M)",    kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Bank Statement (6M)",   kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Property Documents",    kind: .supporting, status: .notUploaded),
             ]
         case .personal:
             return base + [
-                LeadDocument(id: UUID(), name: "Salary Slips (3M)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Bank Statement (6M)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Employment Letter", kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Salary Slips (3M)",    kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Bank Statement (6M)",   kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Employment Letter",     kind: .supporting, status: .notUploaded),
             ]
         case .auto:
             return base + [
-                LeadDocument(id: UUID(), name: "Salary Slips (3M)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Bank Statement (6M)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "OEM Proforma Invoice", kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Salary Slips (3M)",    kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Bank Statement (6M)",   kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "OEM Proforma Invoice",  kind: .supporting, status: .notUploaded),
             ]
         case .education:
             return base + [
-                LeadDocument(id: UUID(), name: "Admission Letter", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Fee Structure", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Academic Records", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Co-Applicant Income", kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Admission Letter",      kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Fee Structure",          kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Academic Records",       kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Co-Applicant Income",   kind: .supporting, status: .notUploaded),
             ]
         case .business:
             return base + [
-                LeadDocument(id: UUID(), name: "ITR (2 Years)", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Audited P&L", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "GST Certificate", kind: .supporting, status: .notUploaded),
-                LeadDocument(id: UUID(), name: "Bank Statement (6M)", kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "ITR (2 Years)",          kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Audited P&L",            kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "GST Certificate",        kind: .supporting, status: .notUploaded),
+                LeadDocument(id: UUID(), name: "Bank Statement (6M)",    kind: .supporting, status: .notUploaded),
             ]
         }
     }

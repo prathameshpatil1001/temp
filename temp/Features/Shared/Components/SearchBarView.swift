@@ -3,11 +3,12 @@ import SwiftUI
 struct SearchBarView: View {
     @Binding var text: String
     var placeholder: String = "Search by name or phone"
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: AppSpacing.xs) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(Color.textTertiary)
+                .foregroundColor(isFocused ? Color.brandBlue : Color.textTertiary)
                 .font(.system(size: 15, weight: .medium))
 
             TextField(placeholder, text: $text)
@@ -15,6 +16,7 @@ struct SearchBarView: View {
                 .foregroundColor(Color.textPrimary)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .focused($isFocused)
 
             if !text.isEmpty {
                 Button {
@@ -28,14 +30,16 @@ struct SearchBarView: View {
                 .transition(.opacity.combined(with: .scale))
             }
         }
-        .padding(.horizontal, AppSpacing.sm)
-        .padding(.vertical, AppSpacing.sm - 2)
-        .background(Color.surfacePrimary)
-        .clipShape(RoundedRectangle(cornerRadius: AppRadius.full))
+        .padding(.horizontal, AppSpacing.md)
+        .padding(.vertical, AppSpacing.sm + 2)
+        .background(Color.surfaceGlass)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppRadius.full)
-                .strokeBorder(Color.borderLight, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                .strokeBorder(isFocused ? Color.brandBlue.opacity(0.4) : Color.borderLight, lineWidth: isFocused ? 1.5 : 1)
         )
+        .cardShadow()
         .animation(.easeInOut(duration: 0.15), value: text.isEmpty)
     }
 }

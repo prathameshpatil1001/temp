@@ -17,29 +17,41 @@ struct ApplicationsView: View {
         NavigationStack {
             ZStack(alignment: .top) {
                 Color.surfaceSecondary.ignoresSafeArea()
+                DSTHeaderGradientBackground(height: 230)
 
                 VStack(spacing: 0) {
+                    applicationsHero
+                        .padding(.horizontal, AppSpacing.md)
+                        .padding(.top, AppSpacing.sm)
 
-                    // ✅ Sticky Header & Filters
                     VStack(spacing: 0) {
                         SearchBarView(text: $viewModel.searchText)
                             .padding(.horizontal, AppSpacing.md)
                             .padding(.vertical, AppSpacing.xs)
-
-                        // ✅ Filter Chips with chevrons
                         filterChipHeader
                     }
                     .padding(.bottom, AppSpacing.xs)
-                    .background(Color.surfaceSecondary)
+                    .background(Color.clear)
 
-                    // ✅ SCROLLABLE CONTENT ONLY
                     ScrollView {
                         if viewModel.isLoading {
                             loadingView
                         } else if viewModel.filteredApplications.isEmpty {
                             emptyView
                         } else {
-                            applicationList
+                            VStack(spacing: AppSpacing.md) {
+                                ApplicationStatsBar(stats: viewModel.stats)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                                            .stroke(Color.borderLight, lineWidth: 1)
+                                    )
+                                    .cardShadow()
+                                    .padding(.horizontal, AppSpacing.md)
+                                    .padding(.top, AppSpacing.sm)
+
+                                applicationList
+                            }
                         }
                     }
                 }
@@ -47,13 +59,41 @@ struct ApplicationsView: View {
             }
             .navigationTitle("Applications")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(item: $viewModel.selectedApplication) { app in
-                ApplicationDetailPlaceholder(application: app)
+            .navigationDestination(for: LoanApplication.self) { app in
+                ApplicationDetailView(application: app)
             }
             .refreshable {
                 viewModel.loadApplications()
             }
         }
+    }
+
+    private var applicationsHero: some View {
+        DSTSurfaceCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                DSTSectionTitle("Application Pipeline", subtitle: "Track every converted file with the same transparency and confidence as the borrower experience.")
+                HStack(spacing: AppSpacing.sm) {
+                    statTile(title: "Total", value: "\(viewModel.stats.total)", color: Color.textPrimary)
+                    statTile(title: "Under Review", value: "\(viewModel.stats.underReview)", color: Color.statusPending)
+                    statTile(title: "Approved", value: "\(viewModel.stats.approved)", color: Color.statusApproved)
+                }
+            }
+        }
+    }
+
+    private func statTile(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(AppFont.title2())
+                .foregroundColor(color)
+            Text(title)
+                .font(AppFont.caption())
+                .foregroundColor(Color.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AppSpacing.sm)
+        .background(Color.brandBlueSoft.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
     }
 
     // MARK: - FILTER CHIP HEADER WITH CHEVRONS
@@ -168,9 +208,10 @@ struct ApplicationsView: View {
     private var applicationList: some View {
         LazyVStack(spacing: 0) {
             ForEach(Array(viewModel.filteredApplications.enumerated()), id: \.element.id) { index, app in
-                ApplicationRowView(application: app) {
-                    viewModel.selectedApplication = app
+                NavigationLink(value: app) {
+                    ApplicationRowView(application: app)
                 }
+                .buttonStyle(.plain)
                 if index < viewModel.filteredApplications.count - 1 {
                     Divider()
                         .padding(.leading, 76)
@@ -183,8 +224,8 @@ struct ApplicationsView: View {
             RoundedRectangle(cornerRadius: AppRadius.md)
                 .strokeBorder(Color.borderLight, lineWidth: 1)
         )
+        .cardShadow()
         .padding(.horizontal, AppSpacing.md)
-        .padding(.top, AppSpacing.sm)
         .padding(.bottom, AppSpacing.xl)
     }
 

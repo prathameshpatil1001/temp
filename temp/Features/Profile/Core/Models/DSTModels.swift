@@ -55,7 +55,7 @@ struct NotificationSettings: Codable {
 }
 
 struct MessageThread: Identifiable, Codable {
-    let id: UUID
+    let id: String
     let participant: ThreadParticipant
     let messages: [ChatMessage]
     let linkedApplicationRef: String?
@@ -82,8 +82,8 @@ struct MessageThread: Identifiable, Codable {
     }
 }
 
-struct ThreadParticipant: Codable, Identifiable, Equatable {
-    let id: UUID
+struct ThreadParticipant: Codable, Identifiable, Equatable, Hashable {
+    let id: String
     let name: String
     let role: ParticipantRole
 
@@ -93,8 +93,8 @@ struct ThreadParticipant: Codable, Identifiable, Equatable {
     }
 }
 
-struct LeadMessagingConnection: Identifiable, Equatable {
-    let id: UUID
+struct LeadMessagingConnection: Identifiable, Equatable, Hashable {
+    let id: String
     let leadName: String
     let applicationRef: String
     let loanType: String
@@ -105,6 +105,7 @@ enum ParticipantRole: String, Codable {
     case manager     = "Manager"
     case system      = "System"
     case dstAgent    = "DST Agent"
+    case borrower    = "Borrower"
 
     var color: Color {
         switch self {
@@ -112,6 +113,7 @@ enum ParticipantRole: String, Codable {
         case .manager: return .purple
         case .system: return .secondary
         case .dstAgent: return .primary
+        case .borrower: return Color(red: 0.0, green: 0.6, blue: 0.53)
         }
     }
 
@@ -124,7 +126,7 @@ enum ParticipantRole: String, Codable {
         case "manager":
             return .manager
         case "borrower":
-            return .loanOfficer // Map borrowers to loan officer role for chat display
+            return .borrower
         default:
             return .system
         }
@@ -132,9 +134,9 @@ enum ParticipantRole: String, Codable {
 }
 
 struct ChatMessage: Identifiable, Codable {
-    let id: UUID
-    let threadId: UUID
-    let senderId: UUID
+    let id: String
+    let threadId: String
+    let senderId: String
     let senderRole: ParticipantRole
     let content: String
     let sentAt: Date

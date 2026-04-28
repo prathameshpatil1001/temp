@@ -27,27 +27,27 @@ final class MockDSTService {
     }
 
     static func messageThreads() -> [MessageThread] {
-        let agentId = UUID()
-        let vikram = ThreadParticipant(id: UUID(), name: "Vikram Malhotra", role: .loanOfficer)
-        let ananya = ThreadParticipant(id: UUID(), name: "Ananya Singh", role: .loanOfficer)
-        let system = ThreadParticipant(id: UUID(), name: "System Notifications", role: .system)
+        let agentId = "agent-dst-001"
+        let vikram = ThreadParticipant(id: "user-vikram", name: "Vikram Malhotra", role: .loanOfficer)
+        let ananya = ThreadParticipant(id: "user-ananya", name: "Ananya Singh", role: .loanOfficer)
+        let system = ThreadParticipant(id: "system", name: "System Notifications", role: .system)
 
-        let vikramThreadId = UUID()
-        let ananyaThreadId = UUID()
-        let systemThreadId = UUID()
+        let vikramThreadId = "room-vikram"
+        let ananyaThreadId = "room-ananya"
+        let systemThreadId = "room-system"
 
         return [
             MessageThread(
                 id: vikramThreadId,
                 participant: vikram,
                 messages: [
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Hi, I'm reviewing Arjun Mehta's home loan application.", sentAt: todayAt(10, 10), isRead: true, attachmentRef: nil),
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: agentId, senderRole: .dstAgent, content: "Okay, what do you need from me?", sentAt: todayAt(10, 12), isRead: true, attachmentRef: nil),
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Can you share the latest 6-month bank statement?", sentAt: todayAt(10, 20), isRead: true, attachmentRef: nil),
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Also the salary slip for last 3 months.", sentAt: todayAt(10, 21), isRead: true, attachmentRef: nil),
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: agentId, senderRole: .dstAgent, content: "I'll get those uploaded by this evening.", sentAt: todayAt(10, 23), isRead: true, attachmentRef: nil),
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Can you share the latest bank statement for Arjun?", sentAt: todayAt(10, 24), isRead: false, attachmentRef: nil),
-                    ChatMessage(id: UUID(), threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "It seems the one uploaded earlier was only 3 months.", sentAt: todayAt(10, 25), isRead: false, attachmentRef: nil),
+                    ChatMessage(id: "msg-v1", threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Hi, I'm reviewing Arjun Mehta's home loan application.", sentAt: todayAt(10, 10), isRead: true, attachmentRef: nil),
+                    ChatMessage(id: "msg-v2", threadId: vikramThreadId, senderId: agentId, senderRole: .dstAgent, content: "Okay, what do you need from me?", sentAt: todayAt(10, 12), isRead: true, attachmentRef: nil),
+                    ChatMessage(id: "msg-v3", threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Can you share the latest 6-month bank statement?", sentAt: todayAt(10, 20), isRead: true, attachmentRef: nil),
+                    ChatMessage(id: "msg-v4", threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Also the salary slip for last 3 months.", sentAt: todayAt(10, 21), isRead: true, attachmentRef: nil),
+                    ChatMessage(id: "msg-v5", threadId: vikramThreadId, senderId: agentId, senderRole: .dstAgent, content: "I'll get those uploaded by this evening.", sentAt: todayAt(10, 23), isRead: true, attachmentRef: nil),
+                    ChatMessage(id: "msg-v6", threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "Can you share the latest bank statement for Arjun?", sentAt: todayAt(10, 24), isRead: false, attachmentRef: nil),
+                    ChatMessage(id: "msg-v7", threadId: vikramThreadId, senderId: vikram.id, senderRole: .loanOfficer, content: "It seems the one uploaded earlier was only 3 months.", sentAt: todayAt(10, 25), isRead: false, attachmentRef: nil),
                 ],
                 linkedApplicationRef: "A002",
                 linkedLeadName: "Arjun Mehta"
@@ -56,7 +56,7 @@ final class MockDSTService {
                 id: ananyaThreadId,
                 participant: ananya,
                 messages: [
-                    ChatMessage(id: UUID(), threadId: ananyaThreadId, senderId: ananya.id, senderRole: .loanOfficer, content: "Priya's PAN card is urgent. Can you complete the KYC details today?", sentAt: todayAt(9, 15), isRead: false, attachmentRef: nil),
+                    ChatMessage(id: "msg-a1", threadId: ananyaThreadId, senderId: ananya.id, senderRole: .loanOfficer, content: "Priya's PAN card is urgent. Can you complete the KYC details today?", sentAt: todayAt(9, 15), isRead: false, attachmentRef: nil),
                 ],
                 linkedApplicationRef: "A004",
                 linkedLeadName: "Priya Sharma"
@@ -65,7 +65,7 @@ final class MockDSTService {
                 id: systemThreadId,
                 participant: system,
                 messages: [
-                    ChatMessage(id: UUID(), threadId: systemThreadId, senderId: system.id, senderRole: .system, content: "Application A001 moved to \"Under Review\".", sentAt: yesterday(9, 0), isRead: true, attachmentRef: nil),
+                    ChatMessage(id: "msg-s1", threadId: systemThreadId, senderId: system.id, senderRole: .system, content: "Application A001 moved to \"Under Review\".", sentAt: yesterday(9, 0), isRead: true, attachmentRef: nil),
                 ],
                 linkedApplicationRef: "A001",
                 linkedLeadName: "Arjun Mehta"
@@ -75,17 +75,17 @@ final class MockDSTService {
 
     static func loanOfficerDirectory() -> [ThreadParticipant] {
         [
-            ThreadParticipant(id: UUID(), name: "Vikram Malhotra", role: .loanOfficer),
-            ThreadParticipant(id: UUID(), name: "Ananya Singh", role: .loanOfficer),
-            ThreadParticipant(id: UUID(), name: "Priya S", role: .manager),
+            ThreadParticipant(id: "user-vikram", name: "Vikram Malhotra", role: .loanOfficer),
+            ThreadParticipant(id: "user-ananya", name: "Ananya Singh", role: .loanOfficer),
+            ThreadParticipant(id: "user-priya", name: "Priya S", role: .manager),
         ]
     }
 
     static func connectableLeads() -> [LeadMessagingConnection] {
         [
-            LeadMessagingConnection(id: UUID(), leadName: "Arjun Mehta", applicationRef: "A002", loanType: "Home Loan"),
-            LeadMessagingConnection(id: UUID(), leadName: "Priya Sharma", applicationRef: "A004", loanType: "Personal Loan"),
-            LeadMessagingConnection(id: UUID(), leadName: "Siddharth Rao", applicationRef: "A007", loanType: "Car Loan"),
+            LeadMessagingConnection(id: "app-A002", leadName: "Arjun Mehta", applicationRef: "A002", loanType: "Home Loan"),
+            LeadMessagingConnection(id: "app-A004", leadName: "Priya Sharma", applicationRef: "A004", loanType: "Personal Loan"),
+            LeadMessagingConnection(id: "app-A007", leadName: "Siddharth Rao", applicationRef: "A007", loanType: "Car Loan"),
         ]
     }
 

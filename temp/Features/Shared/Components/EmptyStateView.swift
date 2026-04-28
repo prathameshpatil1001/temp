@@ -29,11 +29,11 @@ struct EmptyStateView: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.surfaceTertiary)
-                    .frame(width: 72, height: 72)
+                    .fill(Color.brandBlueSoft)
+                    .frame(width: 82, height: 82)
                 Image(systemName: icon)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundColor(Color.textTertiary)
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundColor(Color.brandBlue)
             }
 
             VStack(spacing: AppSpacing.xs) {
@@ -50,23 +50,20 @@ struct EmptyStateView: View {
             }
 
             if !isSearching && filter.status == nil, let onAddLead {
-                Button(action: onAddLead) {
-                    HStack(spacing: AppSpacing.xs) {
-                        Image(systemName: "plus")
-                        Text("Add Your First Lead")
-                    }
-                    .font(AppFont.bodyMedium())
-                    .foregroundColor(.white)
-                    .padding(.horizontal, AppSpacing.xl)
-                    .padding(.vertical, AppSpacing.sm)
-                    .background(Color.brandBlue)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
+                DSTPrimaryActionButton(title: "Add Your First Lead", systemImage: "plus", action: onAddLead)
+                    .padding(.horizontal, AppSpacing.xxl)
             }
 
             Spacer()
         }
         .frame(maxWidth: .infinity)
+        .padding(AppSpacing.lg)
+        .background(Color.surfacePrimary)
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                .stroke(Color.borderLight, lineWidth: 1)
+        )
+        .cardShadow()
     }
 }

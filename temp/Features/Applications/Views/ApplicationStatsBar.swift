@@ -25,7 +25,7 @@ struct ApplicationStatsBar: View {
             ApplicationStatCell(
                 value: stats.approved,
                 label: "Approved",
-                valueColor: Color(hex: "#057A55")
+                valueColor: Color.statusApproved
             ) { onTap?(.approved) }
 
             divider
@@ -33,11 +33,12 @@ struct ApplicationStatsBar: View {
             ApplicationStatCell(
                 value: stats.disbursed,
                 label: "Disbursed",
-                valueColor: Color(hex: "#2563EB")
+                valueColor: Color.statusDisbursed
             ) { onTap?(.disbursed) }
         }
         .frame(maxWidth: .infinity)
         .background(Color.surfacePrimary)
+        .padding(.vertical, AppSpacing.xs)
     }
 
     private var divider: some View {

@@ -12,9 +12,9 @@ struct EarningsView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
+            ZStack(alignment: .top) {
+                Color.surfaceSecondary.ignoresSafeArea()
+                DSTHeaderGradientBackground(height: 230)
                 
                 if viewModel.isLoading && viewModel.earnings.isEmpty {
                     ProgressView("Loading earnings...")
@@ -38,6 +38,9 @@ struct EarningsView: View {
                 } else {
                     ScrollView {
                         VStack(spacing: 16) {
+                            earningsHero
+                                .padding(.top, 8)
+
                             // Summary Card
                             if let stats = viewModel.stats {
                                 EarningsSummaryCard(stats: stats)
@@ -53,16 +56,22 @@ struct EarningsView: View {
                             
                             // Transactions List
                             if viewModel.filteredEarnings.isEmpty {
-                                VStack(spacing: 12) {
-                                    Image(systemName: "tray")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.secondary)
-                                    Text("No transactions found")
-                                        .font(.system(size: 15))
-                                        .foregroundColor(.secondary)
+                                DSTSurfaceCard {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "tray.fill")
+                                            .font(.system(size: 42))
+                                            .foregroundColor(.brandBlue)
+                                        Text("No transactions found")
+                                            .font(AppFont.bodyMedium())
+                                            .foregroundColor(Color.textPrimary)
+                                        Text("New commissions and payouts will appear here.")
+                                            .font(AppFont.subhead())
+                                            .foregroundColor(Color.textSecondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 40)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 60)
+                                .padding(.horizontal, 16)
                             } else {
                                 VStack(spacing: 0) {
                                     ForEach(viewModel.filteredEarnings) { earning in
@@ -90,12 +99,18 @@ struct EarningsView: View {
                                     }
 
                                 }
-                                .background(Color(.systemBackground))
-                                .cornerRadius(12)
+                                .background(Color.surfacePrimary)
+                                .clipShape(RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: AppRadius.lg, style: .continuous)
+                                        .stroke(Color.borderLight, lineWidth: 1)
+                                )
+                                .cardShadow()
                                 .padding(.horizontal, 16)
                             }
                         }
                         .padding(.bottom, 80)
+                        .padding(.horizontal, 16)
                     }
                     .refreshable {
                         await viewModel.loadData()
@@ -134,6 +149,34 @@ struct EarningsView: View {
             await viewModel.loadData()
         }
     }
+
+    private var earningsHero: some View {
+        DSTSurfaceCard {
+            VStack(alignment: .leading, spacing: AppSpacing.md) {
+                DSTSectionTitle("Earnings Overview", subtitle: "See commissions, pending payouts, and performance momentum at a glance.")
+                HStack(spacing: AppSpacing.sm) {
+                    metric(title: "Transactions", value: "\(viewModel.earnings.count)", color: Color.textPrimary)
+                    metric(title: "Paid", value: "\(viewModel.stats?.paidTransactionsCount ?? 0)", color: Color.statusApproved)
+                    metric(title: "Pending", value: "\(viewModel.stats?.pendingTransactionsCount ?? 0)", color: Color.statusPending)
+                }
+            }
+        }
+    }
+
+    private func metric(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value)
+                .font(AppFont.title2())
+                .foregroundColor(color)
+            Text(title)
+                .font(AppFont.caption())
+                .foregroundColor(Color.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(AppSpacing.sm)
+        .background(Color.brandBlueSoft.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: AppRadius.md, style: .continuous))
+    }
 }
 
 struct FilterPill: View {
@@ -142,13 +185,27 @@ struct FilterPill: View {
     
     var body: some View {
         Text(title)
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(isSelected ? .white : .primary)
+            .font(AppFont.subheadMed())
+            .foregroundColor(isSelected ? .white : Color.textSecondary)
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.brandBlue : Color(.systemGray5))
+                    .fill(
+                        isSelected
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [Color.mainBlue, Color.secondaryBlue],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            : AnyShapeStyle(Color.surfacePrimary)
+                    )
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(isSelected ? Color.clear : Color.borderLight, lineWidth: 1)
             )
     }
 }

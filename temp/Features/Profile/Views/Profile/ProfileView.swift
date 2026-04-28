@@ -12,17 +12,21 @@ struct ProfileView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    agentHeaderSection
-                    performanceSection
-                    topPerformerBanner
-                    settingsList
-                    logoutButton
-                    footerLabel
+            ZStack(alignment: .top) {
+                Color.surfaceSecondary.ignoresSafeArea()
+                DSTHeaderGradientBackground(height: 230)
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        agentHeaderSection
+                        performanceSection
+                        topPerformerBanner
+                        settingsList
+                        logoutButton
+                        footerLabel
+                    }
                 }
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
             // Push destinations
@@ -80,7 +84,12 @@ struct ProfileView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.borderLight, lineWidth: 1)
+        )
+        .cardShadow()
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 4)
@@ -165,7 +174,12 @@ struct ProfileView: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 16))
+            .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.borderLight, lineWidth: 1)
+            )
+            .cardShadow()
             .padding(.horizontal, 16)
         }
     }
@@ -191,7 +205,12 @@ struct ProfileView: View {
                         .foregroundStyle(.yellow)
                 }
                 .padding(16)
-                .background(Color(red: 0.88, green: 0.93, blue: 1.0), in: RoundedRectangle(cornerRadius: 14))
+                .background(Color.brandBlueSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.brandBlue.opacity(0.12), lineWidth: 1)
+                )
+                .cardShadow()
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
             }
@@ -221,7 +240,12 @@ struct ProfileView: View {
                             }
                         }
                     }
-                    .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.borderLight, lineWidth: 1)
+                    )
+                    .cardShadow()
                     .padding(.horizontal, 16)
                 }
             }
@@ -247,7 +271,12 @@ struct ProfileView: View {
                 Spacer()
             }
             .padding(16)
-            .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.surfacePrimary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.borderLight, lineWidth: 1)
+            )
+            .cardShadow()
             .padding(.horizontal, 16)
             .padding(.top, 24)
         }

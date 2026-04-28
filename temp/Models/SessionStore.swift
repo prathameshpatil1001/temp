@@ -143,36 +143,31 @@ final class SessionStore: ObservableObject {
     // MARK: - Quick Login (Reopen + MFA)
 
     /// Quick login using TOTP via the backend's InitiateReopen + MFA flow.
-    func verifyQuickReopenMFA(
-        factor: String,
-        code: String
-    ) async throws -> Bool {
+    func verifyQuickReopenMFA(factor: String, code: String) async throws -> Bool {
         guard #available(iOS 18.0, *) else { return false }
-
         let repository = AuthRepository()
-        let reopen = try await repository.initiateReopen()
 
+        // Step 1
+        let reopen = try await repository.initiateReopen()
         guard reopen.allowedFactors.contains(factor) else {
-            throw AuthError.invalidServerResponse("Factor \(factor) is not available for this account.")
+            throw AuthError.invalidServerResponse(
+                "Factor \(factor) not available for this account.")
         }
 
+        // Step 2 — THIS WAS MISSING. Backend requires it before VerifyLoginMFA.
         _ = try await repository.selectLoginFactor(
-            mfaSessionID: reopen.mfaSessionID,
-            factor: factor
-        )
+            mfaSessionID: reopen.mfaSessionID, factor: factor)
 
+        // Step 3
         let factorSelection: Auth_V1_VerifyLoginMFARequest.OneOf_Factor
         switch factor {
-        case "totp":
-            factorSelection = .totpCode(code)
-        default:
-            throw AuthError.invalidServerResponse("Unsupported quick login method.")
+        case "totp":      factorSelection = .totpCode(code)
+        case "email_otp": factorSelection = .emailOtpCode(code)
+        case "phone_otp": factorSelection = .phoneOtpCode(code)
+        default: throw AuthError.unknown
         }
-
         let tokens = try await repository.verifyLoginMFA(
-            mfaSessionID: reopen.mfaSessionID,
-            factorSelection: factorSelection
-        )
+            mfaSessionID: reopen.mfaSessionID, factorSelection: factorSelection)
         try SessionManager.shared.startSession(tokens: tokens)
         await completeSessionFromBackend()
         return true
@@ -200,20 +195,21 @@ final class SessionStore: ObservableObject {
     }
 
     /// Second step of OTP-based quick login: verify the OTP code.
-    func verifyQuickReopenOTP(mfaSessionID: String, factor: String, code: String) async throws -> Bool {
+    func verifyQuickReopenOTP(
+        mfaSessionID: String, factor: String, code: String
+    ) async throws -> Bool {
         guard #available(iOS 18.0, *) else { return false }
-        guard factor == "email_otp" || factor == "phone_otp" else {
-            throw AuthError.invalidServerResponse("Unsupported quick login method.")
-        }
-
         let repository = AuthRepository()
-        let factorSelection: Auth_V1_VerifyLoginMFARequest.OneOf_Factor =
-            factor == "email_otp" ? .emailOtpCode(code) : .phoneOtpCode(code)
-
+        let factorSelection: Auth_V1_VerifyLoginMFARequest.OneOf_Factor
+        switch factor {
+        case "email_otp": factorSelection = .emailOtpCode(code)
+        case "phone_otp": factorSelection = .phoneOtpCode(code)
+        default: throw AuthError.unknown
+        }
+        // Note: factor was already selected in beginQuickReopenOTP(),
+        // so we go straight to VerifyLoginMFA with the session ID from that call.
         let tokens = try await repository.verifyLoginMFA(
-            mfaSessionID: mfaSessionID,
-            factorSelection: factorSelection
-        )
+            mfaSessionID: mfaSessionID, factorSelection: factorSelection)
         try SessionManager.shared.startSession(tokens: tokens)
         await completeSessionFromBackend()
         return true
@@ -222,31 +218,30 @@ final class SessionStore: ObservableObject {
     /// Quick login using passkey via InitiateReopen + WebAuthn.
     func verifyQuickReopenPasskey() async throws -> Bool {
         guard #available(iOS 18.0, *) else { return false }
-
         let repository = AuthRepository()
+
+        // Step 1: Initiate reopen to get a fresh mfaSessionID
         let reopen = try await repository.initiateReopen()
-
         guard reopen.allowedFactors.contains("webauthn") else {
-            throw AuthError.invalidServerResponse("Passkey is not available for this account.")
+            throw AuthError.invalidServerResponse(
+                "Passkey not registered for this account. Use password login.")
         }
 
-        guard let accessToken = try TokenStore.shared.accessToken(),
-              let userID = JWTClaimsDecoder.subject(from: accessToken) else {
-            throw AuthError.unauthenticated
+        // Step 2: Select webauthn factor — backend returns request options
+        let selection = try await repository.selectLoginFactor(
+            mfaSessionID: reopen.mfaSessionID, factor: "webauthn")
+        guard !selection.webauthnRequestOptions.isEmpty else {
+            throw AuthError.invalidServerResponse("Server did not return passkey options.")
         }
 
-        _ = try await repository.selectLoginFactor(
+        // Step 3: Trigger Face ID — PasskeyManager handles the UI prompt
+        let assertion = try await PasskeyManager.shared.getAssertion(
+            from: selection.webauthnRequestOptions)
+
+        // Step 4: Verify assertion with backend
+        let tokens = try await repository.verifyLoginMFA(
             mfaSessionID: reopen.mfaSessionID,
-            factor: "webauthn"
-        )
-
-        let loginCtx = try await repository.beginPasskeyLogin(userID: userID)
-        let assertion = try await PasskeyManager.shared.getAssertion(from: loginCtx.requestOptionsJSON)
-
-        let tokens = try await repository.finishPasskeyLogin(
-            mfaSessionID: loginCtx.mfaSessionID,
-            assertionJSON: assertion
-        )
+            factorSelection: .webauthnAssertion(assertion))
         try SessionManager.shared.startSession(tokens: tokens)
         await completeSessionFromBackend()
         return true
