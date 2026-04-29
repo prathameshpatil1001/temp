@@ -688,8 +688,13 @@ struct AdminSystemControlView: View {
             HStack {
                 SectionHeader(title: "System Audit Logs", icon: "list.bullet.rectangle.portrait")
                 Spacer()
-                Button {} label: {
-                    Label("Export CSV", systemImage: "square.and.arrow.up").font(Theme.Typography.caption).foregroundStyle(Theme.Colors.primary)
+                Button {
+                    let url = ReportExportService.generateAuditCSV(logs: adminVM.auditLogs)
+                    presentShareSheet(url)
+                } label: {
+                    Label("Export CSV", systemImage: "square.and.arrow.up")
+                        .font(Theme.Typography.caption)
+                        .foregroundStyle(Theme.Colors.primary)
                 }.buttonStyle(.plain)
             }
             VStack(spacing: 0) {
@@ -711,6 +716,22 @@ struct AdminSystemControlView: View {
                 }
             }.cardStyle(colorScheme: colorScheme)
         }
+    }
+
+    /// Present UIActivityViewController from the topmost active controller.
+    /// Using this directly (instead of a SwiftUI sheet) ensures .csv files
+    /// are routed to Files / Numbers and not misidentified as calendar/reminder items.
+    private func presentShareSheet(_ url: URL) {
+        let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        vc.excludedActivityTypes = [.addToReadingList, .assignToContact, .openInIBooks]
+        guard
+            let scene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+            let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController
+        else { return }
+        var topVC = root
+        while let presented = topVC.presentedViewController { topVC = presented }
+        topVC.present(vc, animated: true)
     }
 
     private func accessLogRow(user: String, action: String, time: String) -> some View {

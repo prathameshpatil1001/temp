@@ -501,6 +501,9 @@ struct LOApplicationsView: View {
                         Text(app.borrower.name)
                             .font(.system(size: 22, weight: .bold, design: .rounded))
                         StatusBadge(status: app.status)
+                        if app.isHighRisk {
+                                HighRiskBadge()
+                            }
                     }
                     
                     HStack(spacing: 6) {
