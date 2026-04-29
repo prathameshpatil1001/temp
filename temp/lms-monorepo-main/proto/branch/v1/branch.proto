@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package branch.v1;
+
+option go_package = "github.com/chirag3003/lms-monorepo/services/core-api/internal/transport/grpc/generated/branchv1;branchv1";
+
+service BranchService {
+  rpc ListBranches(ListBranchesRequest) returns (ListBranchesResponse);
+}
+
+message BankBranch {
+  string id = 1;
+  string name = 2;
+  string region = 3;
+  string city = 4;
+  string dst_commission = 5;
+  string created_at = 6;
+}
+
+message ListBranchesRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+message ListBranchesResponse {
+  repeated BankBranch branches = 1;
+}

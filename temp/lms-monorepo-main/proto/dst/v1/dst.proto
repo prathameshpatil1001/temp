@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package dst.v1;
+
+option go_package = "github.com/chirag3003/lms-monorepo/services/core-api/internal/transport/grpc/generated/dstv1;dstv1";
+
+service DstService {
+  rpc GetDstAccount(GetDstAccountRequest) returns (GetDstAccountResponse);
+  rpc ListDstAccounts(ListDstAccountsRequest) returns (ListDstAccountsResponse);
+}
+
+message DstAccount {
+  string user_id = 1;
+  string profile_id = 2;
+  string name = 3;
+  string email = 4;
+  string phone_number = 5;
+  bool is_active = 6;
+  bool is_requiring_password_change = 7;
+  string branch_id = 8;
+  string branch_name = 9;
+  string branch_region = 10;
+  string branch_city = 11;
+  string created_at = 12;
+}
+
+message GetDstAccountRequest {
+  string user_id = 1;
+}
+
+message GetDstAccountResponse {
+  DstAccount account = 1;
+}
+
+message ListDstAccountsRequest {
+  string branch_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListDstAccountsResponse {
+  repeated DstAccount items = 1;
+}

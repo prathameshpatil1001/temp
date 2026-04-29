@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package onboarding.v1;
+
+option go_package = "github.com/chirag3003/lms-monorepo/services/core-api/internal/transport/grpc/generated/onboardingv1;onboardingv1";
+
+service OnboardingService {
+  rpc CompleteBorrowerOnboarding(CompleteBorrowerOnboardingRequest) returns (CompleteBorrowerOnboardingResponse);
+  rpc UpdateBorrowerProfile(UpdateBorrowerProfileRequest) returns (UpdateBorrowerProfileResponse);
+}
+
+enum BorrowerGender {
+  BORROWER_GENDER_UNSPECIFIED = 0;
+  BORROWER_GENDER_MALE = 1;
+  BORROWER_GENDER_FEMALE = 2;
+  BORROWER_GENDER_OTHER = 3;
+}
+
+enum BorrowerEmploymentType {
+  BORROWER_EMPLOYMENT_TYPE_UNSPECIFIED = 0;
+  BORROWER_EMPLOYMENT_TYPE_SALARIED = 1;
+  BORROWER_EMPLOYMENT_TYPE_SELF_EMPLOYED = 2;
+  BORROWER_EMPLOYMENT_TYPE_BUSINESS = 3;
+}
+
+message CompleteBorrowerOnboardingRequest {
+  // For assisted onboarding by staff roles.
+  // Borrower self-onboarding can keep this empty.
+  string borrower_user_id = 12;
+  string first_name = 1;
+  string last_name = 2;
+  string date_of_birth = 3;
+  BorrowerGender gender = 4;
+  string address_line1 = 5;
+  string city = 6;
+  string state = 7;
+  string pincode = 8;
+  BorrowerEmploymentType employment_type = 9;
+  string monthly_income = 10;
+  int32 profile_completeness_percent = 11;
+  // Device ID for the refresh token minted on activation.
+  string device_id = 14;
+}
+
+message CompleteBorrowerOnboardingResponse {
+  bool success = 1;
+  // Fresh token pair issued after activation.
+  // The new access token has is_active=true, replacing the stale
+  // is_active=false token the borrower held during onboarding.
+  string access_token = 2;
+  string refresh_token = 3;
+}
+
+message UpdateBorrowerProfileRequest {
+  // For staff-assisted update. Borrower can leave empty to update own profile.
+  string borrower_user_id = 12;
+  string first_name = 1;
+  string last_name = 2;
+  string date_of_birth = 3;
+  BorrowerGender gender = 4;
+  string address_line1 = 5;
+  string city = 6;
+  string state = 7;
+  string pincode = 8;
+  BorrowerEmploymentType employment_type = 9;
+  string monthly_income = 10;
+  int32 profile_completeness_percent = 11;
+  int32 cibil_score = 13;
+}
+
+message UpdateBorrowerProfileResponse {
+  bool success = 1;
+}

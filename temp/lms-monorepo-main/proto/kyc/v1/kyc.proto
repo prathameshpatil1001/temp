@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package kyc.v1;
+
+option go_package = "github.com/chirag3003/lms-monorepo/services/core-api/internal/transport/grpc/generated/kycv1;kycv1";
+
+service KycService {
+  rpc RecordUserConsent(RecordUserConsentRequest) returns (RecordUserConsentResponse);
+  rpc InitiateAadhaarKyc(InitiateAadhaarKycRequest) returns (InitiateAadhaarKycResponse);
+  rpc VerifyAadhaarKycOtp(VerifyAadhaarKycOtpRequest) returns (VerifyAadhaarKycOtpResponse);
+  rpc VerifyPanKyc(VerifyPanKycRequest) returns (VerifyPanKycResponse);
+  rpc GetBorrowerKycStatus(GetBorrowerKycStatusRequest) returns (GetBorrowerKycStatusResponse);
+  rpc ListBorrowerKycHistory(ListBorrowerKycHistoryRequest) returns (ListBorrowerKycHistoryResponse);
+}
+
+enum KycDocType {
+  KYC_DOC_TYPE_UNSPECIFIED = 0;
+  KYC_DOC_TYPE_AADHAAR = 1;
+  KYC_DOC_TYPE_PAN = 2;
+}
+
+enum ConsentType {
+  CONSENT_TYPE_UNSPECIFIED = 0;
+  CONSENT_TYPE_AADHAAR_KYC = 1;
+  CONSENT_TYPE_PAN_KYC = 2;
+}
+
+message RecordUserConsentRequest {
+  ConsentType consent_type = 1;
+  string consent_version = 2;
+  string consent_text = 3;
+  bool is_granted = 4;
+  string source = 5;
+  string ip_address = 6;
+  string user_agent = 7;
+  string metadata_json = 8;
+  string borrower_user_id = 9;
+}
+
+message RecordUserConsentResponse {
+  bool success = 1;
+  string consent_id = 2;
+}
+
+message InitiateAadhaarKycRequest {
+  string aadhaar_number = 1;
+  string reason = 2;
+  string borrower_user_id = 3;
+}
+
+message InitiateAadhaarKycResponse {
+  bool success = 1;
+  string reference_id = 2;
+  string provider_transaction_id = 3;
+  string message = 4;
+}
+
+message VerifyAadhaarKycOtpRequest {
+  string reference_id = 1;
+  string otp = 2;
+  string borrower_user_id = 3;
+}
+
+message VerifyAadhaarKycOtpResponse {
+  bool success = 1;
+  string status = 2;
+  string message = 3;
+  string provider_transaction_id = 4;
+  string name = 5;
+  string date_of_birth = 6;
+  string gender = 7;
+}
+
+message VerifyPanKycRequest {
+  string pan = 1;
+  string name_as_per_pan = 2;
+  string date_of_birth = 3;
+  string reason = 4;
+  string borrower_user_id = 5;
+}
+
+message VerifyPanKycResponse {
+  bool success = 1;
+  string status = 2;
+  string message = 3;
+  string provider_transaction_id = 4;
+  bool name_as_per_pan_match = 5;
+  bool date_of_birth_match = 6;
+  string aadhaar_seeding_status = 7;
+}
+
+message GetBorrowerKycStatusRequest {
+  string borrower_user_id = 1;
+}
+
+message GetBorrowerKycStatusResponse {
+  bool is_aadhaar_verified = 1;
+  bool is_pan_verified = 2;
+  string aadhaar_verified_at = 3;
+  string pan_verified_at = 4;
+}
+
+message ListBorrowerKycHistoryRequest {
+  KycDocType doc_type = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  string borrower_user_id = 4;
+}
+
+message KycHistoryItem {
+  string id = 1;
+  KycDocType doc_type = 2;
+  string status = 3;
+  string failure_code = 4;
+  string failure_reason = 5;
+  string provider_transaction_id = 6;
+  string attempted_at = 7;
+}
+
+message ListBorrowerKycHistoryResponse {
+  repeated KycHistoryItem items = 1;
+}

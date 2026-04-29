@@ -1,0 +1,837 @@
+syntax = "proto3";
+
+package loan.v1;
+
+option go_package = "github.com/chirag3003/lms-monorepo/services/core-api/internal/transport/grpc/generated/loanv1;loanv1";
+
+// LoanService manages loan products, applications, and loan lifecycle.
+service LoanService {
+  // --- Product management (admin-only mutations) ---
+
+  // Create a new loan product. Admin only.
+  rpc CreateLoanProduct(CreateLoanProductRequest) returns (CreateLoanProductResponse);
+  // Update an existing loan product. Admin only.
+  rpc UpdateLoanProduct(UpdateLoanProductRequest) returns (UpdateLoanProductResponse);
+  // Soft-delete a loan product. Admin only.
+  rpc DeleteLoanProduct(DeleteLoanProductRequest) returns (DeleteLoanProductResponse);
+  // Get a single loan product by ID.
+  rpc GetLoanProduct(GetLoanProductRequest) returns (GetLoanProductResponse);
+  // List loan products with pagination.
+  rpc ListLoanProducts(ListLoanProductsRequest) returns (ListLoanProductsResponse);
+  // Upsert (create or replace) eligibility rules for a product. Admin only.
+  rpc UpsertProductEligibilityRule(UpsertProductEligibilityRuleRequest) returns (UpsertProductEligibilityRuleResponse);
+  // Replace all fees for a product. Admin only.
+  rpc ReplaceProductFees(ReplaceProductFeesRequest) returns (ReplaceProductFeesResponse);
+  // Replace all required documents for a product. Admin only.
+  rpc ReplaceProductRequiredDocuments(ReplaceProductRequiredDocumentsRequest) returns (ReplaceProductRequiredDocumentsResponse);
+
+  // --- Application management ---
+
+  // Create a loan application. Borrower/officer/DST can create.
+  rpc CreateLoanApplication(CreateLoanApplicationRequest) returns (CreateLoanApplicationResponse);
+  // Get a loan application with all sub-resources (coapplicants, collateral, documents, bureau scores).
+  rpc GetLoanApplication(GetLoanApplicationRequest) returns (GetLoanApplicationResponse);
+  // List loan applications with optional branch filter.
+  rpc ListLoanApplications(ListLoanApplicationsRequest) returns (ListLoanApplicationsResponse);
+  // Advance the application status through the approval workflow.
+  rpc UpdateLoanApplicationStatus(UpdateLoanApplicationStatusRequest) returns (UpdateLoanApplicationStatusResponse);
+  // Update offered terms (tenure, interest rate) on an application.
+  rpc UpdateLoanApplicationTerms(UpdateLoanApplicationTermsRequest) returns (UpdateLoanApplicationTermsResponse);
+  // Assign a loan officer to an application. Manager/admin only.
+  rpc AssignLoanApplicationOfficer(AssignLoanApplicationOfficerRequest) returns (AssignLoanApplicationOfficerResponse);
+  // Add a coapplicant to an application.
+  rpc AddApplicationCoapplicant(AddApplicationCoapplicantRequest) returns (AddApplicationCoapplicantResponse);
+  // Upsert (create or update) collateral details for an application.
+  rpc UpsertApplicationCollateral(UpsertApplicationCollateralRequest) returns (UpsertApplicationCollateralResponse);
+  // Upsert (create or update) vehicle details for an application.
+  rpc UpsertLoanVehicle(UpsertLoanVehicleRequest) returns (UpsertLoanVehicleResponse);
+  // Upsert (create or update) real-estate details for an application.
+  rpc UpsertLoanRealEstate(UpsertLoanRealEstateRequest) returns (UpsertLoanRealEstateResponse);
+  // Upload a document against an application's required document slot.
+  rpc AddApplicationDocument(AddApplicationDocumentRequest) returns (AddApplicationDocumentResponse);
+  // Verify (pass/fail) an application document. Officer/manager/admin only. Immutable once set.
+  rpc UpdateApplicationDocumentVerification(UpdateApplicationDocumentVerificationRequest) returns (UpdateApplicationDocumentVerificationResponse);
+  // Add a bureau score for a borrower on an application.
+  rpc AddBureauScore(AddBureauScoreRequest) returns (AddBureauScoreResponse);
+
+  // --- Loan lifecycle ---
+
+  // Create a loan from a fully-approved application. Manager/admin only.
+  rpc CreateLoan(CreateLoanRequest) returns (CreateLoanResponse);
+  // Get a loan by ID or application ID.
+  rpc GetLoan(GetLoanRequest) returns (GetLoanResponse);
+  // List all loans with pagination.
+  rpc ListLoans(ListLoansRequest) returns (ListLoansResponse);
+  // Add a single EMI schedule entry to a loan. Manager/admin only.
+  rpc AddEmiScheduleItem(AddEmiScheduleItemRequest) returns (AddEmiScheduleItemResponse);
+  // List the EMI schedule for a loan.
+  rpc ListEmiSchedule(ListEmiScheduleRequest) returns (ListEmiScheduleResponse);
+  // Record a payment against a specific EMI. Officer/manager/admin.
+  rpc RecordPayment(RecordPaymentRequest) returns (RecordPaymentResponse);
+  // List payments for a loan.
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  // Reschedule an active loan by changing its tenure. Manager/admin only.
+  rpc RescheduleLoan(RescheduleLoanRequest) returns (RescheduleLoanResponse);
+  // Initiate a Razorpay payment for a loan/EMI.
+  rpc InitiatePayment(InitiatePaymentRequest) returns (InitiatePaymentResponse);
+  // Verify a completed Razorpay payment.
+  rpc VerifyPayment(VerifyPaymentRequest) returns (VerifyPaymentResponse);
+}
+
+// Category of a loan product.
+enum LoanProductCategory {
+  LOAN_PRODUCT_CATEGORY_UNSPECIFIED = 0;
+  LOAN_PRODUCT_CATEGORY_PERSONAL = 1;
+  LOAN_PRODUCT_CATEGORY_HOME = 2;
+  LOAN_PRODUCT_CATEGORY_VEHICLE = 3;
+  LOAN_PRODUCT_CATEGORY_EDUCATION = 4;
+}
+
+// Whether the interest rate is fixed or floating.
+enum InterestType {
+  INTEREST_TYPE_UNSPECIFIED = 0;
+  INTEREST_TYPE_FIXED = 1;
+  INTEREST_TYPE_FLOATING = 2;
+}
+
+// Type of fee associated with a loan product.
+enum ProductFeeType {
+  PRODUCT_FEE_TYPE_UNSPECIFIED = 0;
+  PRODUCT_FEE_TYPE_PROCESSING = 1;
+  PRODUCT_FEE_TYPE_PREPAYMENT = 2;
+  PRODUCT_FEE_TYPE_LATE_PAYMENT = 3;
+}
+
+// How a product fee is calculated.
+enum FeeCalcMethod {
+  FEE_CALC_METHOD_UNSPECIFIED = 0;
+  FEE_CALC_METHOD_FLAT = 1;
+  FEE_CALC_METHOD_PERCENTAGE = 2;
+}
+
+// Category of document required for a loan product.
+enum DocumentRequirementType {
+  DOCUMENT_REQUIREMENT_TYPE_UNSPECIFIED = 0;
+  DOCUMENT_REQUIREMENT_TYPE_IDENTITY = 1;
+  DOCUMENT_REQUIREMENT_TYPE_ADDRESS = 2;
+  DOCUMENT_REQUIREMENT_TYPE_INCOME = 3;
+  DOCUMENT_REQUIREMENT_TYPE_COLLATERAL = 4;
+}
+
+// Status of a loan application through its approval lifecycle.
+enum LoanApplicationStatus {
+  LOAN_APPLICATION_STATUS_UNSPECIFIED = 0;
+  LOAN_APPLICATION_STATUS_DRAFT = 1;
+  LOAN_APPLICATION_STATUS_SUBMITTED = 2;
+  LOAN_APPLICATION_STATUS_UNDER_REVIEW = 3;
+  LOAN_APPLICATION_STATUS_APPROVED = 4;
+  LOAN_APPLICATION_STATUS_REJECTED = 5;
+  LOAN_APPLICATION_STATUS_DISBURSED = 6;
+  LOAN_APPLICATION_STATUS_CANCELLED = 7;
+  LOAN_APPLICATION_STATUS_OFFICER_REVIEW = 8;
+  LOAN_APPLICATION_STATUS_OFFICER_APPROVED = 9;
+  LOAN_APPLICATION_STATUS_OFFICER_REJECTED = 10;
+  LOAN_APPLICATION_STATUS_MANAGER_REVIEW = 11;
+  LOAN_APPLICATION_STATUS_MANAGER_APPROVED = 12;
+  LOAN_APPLICATION_STATUS_MANAGER_REJECTED = 13;
+}
+
+// Relationship of a coapplicant to the primary borrower.
+enum CoapplicantRelationship {
+  COAPPLICANT_RELATIONSHIP_UNSPECIFIED = 0;
+  COAPPLICANT_RELATIONSHIP_SPOUSE = 1;
+  COAPPLICANT_RELATIONSHIP_PARENT = 2;
+  COAPPLICANT_RELATIONSHIP_SIBLING = 3;
+  COAPPLICANT_RELATIONSHIP_BUSINESS_PARTNER = 4;
+}
+
+// Type of collateral asset backing a loan.
+enum CollateralAssetType {
+  COLLATERAL_ASSET_TYPE_UNSPECIFIED = 0;
+  COLLATERAL_ASSET_TYPE_VEHICLE = 1;
+  COLLATERAL_ASSET_TYPE_REAL_ESTATE = 2;
+}
+
+// Verification status of a collateral asset.
+enum CollateralVerificationStatus {
+  COLLATERAL_VERIFICATION_STATUS_UNSPECIFIED = 0;
+  COLLATERAL_VERIFICATION_STATUS_PENDING = 1;
+  COLLATERAL_VERIFICATION_STATUS_VERIFIED = 2;
+  COLLATERAL_VERIFICATION_STATUS_REJECTED = 3;
+}
+
+// Type of property for real-estate collateral.
+enum PropertyType {
+  PROPERTY_TYPE_UNSPECIFIED = 0;
+  PROPERTY_TYPE_APARTMENT = 1;
+  PROPERTY_TYPE_VILLA = 2;
+  PROPERTY_TYPE_PLOT = 3;
+}
+
+// Construction status of a property.
+enum PropertyStatus {
+  PROPERTY_STATUS_UNSPECIFIED = 0;
+  PROPERTY_STATUS_READY_TO_MOVE = 1;
+  PROPERTY_STATUS_UNDER_CONSTRUCTION = 2;
+}
+
+// Verification status of an uploaded application document.
+// Once changed from PENDING, verification_status is immutable.
+enum DocumentVerificationStatus {
+  DOCUMENT_VERIFICATION_STATUS_UNSPECIFIED = 0;
+  DOCUMENT_VERIFICATION_STATUS_PENDING = 1;
+  DOCUMENT_VERIFICATION_STATUS_PASS = 2;
+  DOCUMENT_VERIFICATION_STATUS_FAIL = 3;
+}
+
+// Bureau score provider.
+enum BureauProvider {
+  BUREAU_PROVIDER_UNSPECIFIED = 0;
+  BUREAU_PROVIDER_CIBIL = 1;
+  BUREAU_PROVIDER_EXPERIAN = 2;
+  BUREAU_PROVIDER_EQUIFAX = 3;
+}
+
+// Status of an active loan.
+enum LoanStatus {
+  LOAN_STATUS_UNSPECIFIED = 0;
+  LOAN_STATUS_ACTIVE = 1;
+  LOAN_STATUS_CLOSED = 2;
+  LOAN_STATUS_NPA = 3;
+}
+
+// Status of a single EMI installment.
+enum EmiStatus {
+  EMI_STATUS_UNSPECIFIED = 0;
+  EMI_STATUS_UPCOMING = 1;
+  EMI_STATUS_PAID = 2;
+  EMI_STATUS_OVERDUE = 3;
+}
+
+// Status of a payment transaction.
+enum PaymentStatus {
+  PAYMENT_STATUS_UNSPECIFIED = 0;
+  PAYMENT_STATUS_PENDING = 1;
+  PAYMENT_STATUS_SUCCESS = 2;
+  PAYMENT_STATUS_FAILED = 3;
+}
+
+// Channel through which an application was created.
+enum ApplicationCreatedByChannel {
+  APPLICATION_CREATED_BY_CHANNEL_UNSPECIFIED = 0;
+  APPLICATION_CREATED_BY_CHANNEL_SELF = 1;
+  APPLICATION_CREATED_BY_CHANNEL_DST = 2;
+  APPLICATION_CREATED_BY_CHANNEL_OFFICER = 3;
+}
+
+// Fee associated with a loan product.
+message ProductFee {
+  string id = 1;
+  ProductFeeType type = 2;
+  FeeCalcMethod calc_method = 3;
+  string value = 4;
+}
+
+// A required document type for a loan product.
+message ProductRequiredDocument {
+  string id = 1;
+  DocumentRequirementType requirement_type = 2;
+  bool is_mandatory = 3;
+}
+
+// Eligibility rules for a loan product (age, income, bureau score, employment).
+message ProductEligibilityRule {
+  string id = 1;
+  int32 min_age = 2;
+  string min_monthly_income = 3;
+  int32 min_bureau_score = 4;
+  repeated string allowed_employment_types = 5;
+}
+
+// A loan product definition with fees, required documents, and eligibility rules.
+message LoanProduct {
+  string id = 1;
+  string name = 2;
+  LoanProductCategory category = 3;
+  InterestType interest_type = 4;
+  string base_interest_rate = 5;
+  string min_amount = 6;
+  string max_amount = 7;
+  bool is_requiring_collateral = 8;
+  bool is_active = 9;
+  bool is_deleted = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  ProductEligibilityRule eligibility_rule = 13;
+  repeated ProductFee fees = 14;
+  repeated ProductRequiredDocument required_documents = 15;
+}
+
+// Request to create a new loan product.
+message CreateLoanProductRequest {
+  string name = 1;
+  LoanProductCategory category = 2;
+  InterestType interest_type = 3;
+  string base_interest_rate = 4;
+  string min_amount = 5;
+  string max_amount = 6;
+  bool is_requiring_collateral = 7;
+  bool is_active = 8;
+}
+
+// Response containing the created loan product.
+message CreateLoanProductResponse {
+  LoanProduct product = 1;
+}
+
+// Request to update an existing loan product.
+message UpdateLoanProductRequest {
+  string product_id = 1;
+  string name = 2;
+  LoanProductCategory category = 3;
+  InterestType interest_type = 4;
+  string base_interest_rate = 5;
+  string min_amount = 6;
+  string max_amount = 7;
+  bool is_requiring_collateral = 8;
+  bool is_active = 9;
+}
+
+// Response containing the updated loan product.
+message UpdateLoanProductResponse {
+  LoanProduct product = 1;
+}
+
+// Request to soft-delete a loan product.
+message DeleteLoanProductRequest {
+  string product_id = 1;
+}
+
+// Response for loan product deletion.
+message DeleteLoanProductResponse {
+  bool success = 1;
+}
+
+// Request to get a single loan product by ID.
+message GetLoanProductRequest {
+  string product_id = 1;
+}
+
+// Response containing the requested loan product.
+message GetLoanProductResponse {
+  LoanProduct product = 1;
+}
+
+// Request to list loan products with pagination.
+message ListLoanProductsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  bool include_deleted = 3;
+}
+
+// Response containing a paginated list of loan products.
+message ListLoanProductsResponse {
+  repeated LoanProduct items = 1;
+}
+
+// Request to upsert eligibility rules for a loan product.
+message UpsertProductEligibilityRuleRequest {
+  string product_id = 1;
+  int32 min_age = 2;
+  string min_monthly_income = 3;
+  int32 min_bureau_score = 4;
+  repeated string allowed_employment_types = 5;
+}
+
+// Response containing the upserted eligibility rule.
+message UpsertProductEligibilityRuleResponse {
+  ProductEligibilityRule rule = 1;
+}
+
+// Input for a single product fee.
+message ProductFeeInput {
+  ProductFeeType type = 1;
+  FeeCalcMethod calc_method = 2;
+  string value = 3;
+}
+
+// Request to replace all fees for a loan product.
+message ReplaceProductFeesRequest {
+  string product_id = 1;
+  repeated ProductFeeInput items = 2;
+}
+
+// Response containing the replaced product fees.
+message ReplaceProductFeesResponse {
+  repeated ProductFee items = 1;
+}
+
+// Input for a single required document.
+message ProductRequiredDocumentInput {
+  DocumentRequirementType requirement_type = 1;
+  bool is_mandatory = 2;
+}
+
+// Request to replace all required documents for a loan product.
+message ReplaceProductRequiredDocumentsRequest {
+  string product_id = 1;
+  repeated ProductRequiredDocumentInput items = 2;
+}
+
+// Response containing the replaced required documents.
+message ReplaceProductRequiredDocumentsResponse {
+  repeated ProductRequiredDocument items = 1;
+}
+
+// A loan application with status, assignment, and product snapshot.
+message LoanApplication {
+  string id = 1;
+  string reference_number = 2;
+  string primary_borrower_profile_id = 3;
+  string loan_product_id = 4;
+  string loan_product_name = 5;
+  string branch_id = 6;
+  string branch_name = 7;
+  string requested_amount = 8;
+  int32 tenure_months = 9;
+  LoanApplicationStatus status = 10;
+  string assigned_officer_user_id = 11;
+  string escalation_reason = 12;
+  string created_by_user_id = 13;
+  string created_by_role = 14;
+  ApplicationCreatedByChannel created_by_channel = 15;
+  string created_at = 16;
+  string updated_at = 17;
+  string product_snapshot_json = 18;
+  string offered_interest_rate = 19;
+  string disbursement_account_number = 20;
+  string disbursement_ifsc_code = 21;
+  string disbursement_bank_name = 22;
+  string disbursement_account_holder_name = 23;
+}
+
+// Request to create a loan application.
+message CreateLoanApplicationRequest {
+  string primary_borrower_profile_id = 1;
+  string loan_product_id = 2;
+  string branch_id = 3;
+  string requested_amount = 4;
+  int32 tenure_months = 5;
+  LoanApplicationStatus status = 6;
+  string disbursement_account_number = 7;
+  string disbursement_ifsc_code = 8;
+  string disbursement_bank_name = 9;
+  string disbursement_account_holder_name = 10;
+}
+
+// Response containing the created loan application.
+message CreateLoanApplicationResponse {
+  LoanApplication application = 1;
+}
+
+// Request to get a single loan application by ID.
+message GetLoanApplicationRequest {
+  string application_id = 1;
+}
+
+// Response containing the loan application and all sub-resources.
+message GetLoanApplicationResponse {
+  LoanApplication application = 1;
+  repeated ApplicationCoapplicant coapplicants = 2;
+  ApplicationCollateral collateral = 3;
+  LoanVehicle vehicle = 4;
+  LoanRealEstate real_estate = 5;
+  repeated ApplicationDocument documents = 6;
+  repeated BureauScore bureau_scores = 7;
+}
+
+// Request to list loan applications with optional branch filter.
+message ListLoanApplicationsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  string branch_id = 3;
+}
+
+// Response containing a paginated list of loan applications.
+message ListLoanApplicationsResponse {
+  repeated LoanApplication items = 1;
+}
+
+// Request to advance the status of a loan application.
+message UpdateLoanApplicationStatusRequest {
+  string application_id = 1;
+  LoanApplicationStatus status = 2;
+  string escalation_reason = 3;
+}
+
+// Response for loan application status update.
+message UpdateLoanApplicationStatusResponse {
+  bool success = 1;
+}
+
+// Request to update offered terms on a loan application.
+message UpdateLoanApplicationTermsRequest {
+  string application_id = 1;
+  int32 tenure_months = 2;
+  string offered_interest_rate = 3;
+}
+
+// Response containing the updated loan application.
+message UpdateLoanApplicationTermsResponse {
+  LoanApplication application = 1;
+}
+
+// Request to assign a loan officer to an application.
+message AssignLoanApplicationOfficerRequest {
+  string application_id = 1;
+  string officer_user_id = 2;
+}
+
+// Response for officer assignment.
+message AssignLoanApplicationOfficerResponse {
+  bool success = 1;
+}
+
+// A coapplicant linked to a loan application.
+message ApplicationCoapplicant {
+  string id = 1;
+  string application_id = 2;
+  string borrower_profile_id = 3;
+  CoapplicantRelationship relationship = 4;
+  string consent_accepted_at = 5;
+  string created_at = 6;
+}
+
+// Request to add a coapplicant to an application.
+message AddApplicationCoapplicantRequest {
+  string application_id = 1;
+  string borrower_profile_id = 2;
+  CoapplicantRelationship relationship = 3;
+  string consent_accepted_at = 4;
+}
+
+// Response containing the added coapplicant.
+message AddApplicationCoapplicantResponse {
+  ApplicationCoapplicant item = 1;
+}
+
+// Collateral details for a loan application.
+message ApplicationCollateral {
+  string id = 1;
+  string application_id = 2;
+  CollateralAssetType asset_type = 3;
+  string estimated_value = 4;
+  CollateralVerificationStatus verification_status = 5;
+  string collateral_details_json = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+// Request to upsert collateral for an application.
+message UpsertApplicationCollateralRequest {
+  string application_id = 1;
+  CollateralAssetType asset_type = 2;
+  string estimated_value = 3;
+  CollateralVerificationStatus verification_status = 4;
+  string collateral_details_json = 5;
+}
+
+// Response containing the upserted collateral.
+message UpsertApplicationCollateralResponse {
+  ApplicationCollateral collateral = 1;
+}
+
+// Vehicle details for a loan application.
+message LoanVehicle {
+  string id = 1;
+  string application_id = 2;
+  string make = 3;
+  string model = 4;
+  string variant = 5;
+  int32 manufacture_year = 6;
+  string vehicle_identification_number = 7;
+  string engine_number = 8;
+  string insurance_id = 9;
+  string on_road_price = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+// Request to upsert vehicle details for an application.
+message UpsertLoanVehicleRequest {
+  string application_id = 1;
+  string make = 2;
+  string model = 3;
+  string variant = 4;
+  int32 manufacture_year = 5;
+  string vehicle_identification_number = 6;
+  string engine_number = 7;
+  string insurance_id = 8;
+  string on_road_price = 9;
+}
+
+// Response containing the upserted vehicle.
+message UpsertLoanVehicleResponse {
+  LoanVehicle vehicle = 1;
+}
+
+// Real-estate details for a loan application.
+message LoanRealEstate {
+  string id = 1;
+  string application_id = 2;
+  PropertyType prop_type = 3;
+  PropertyStatus status = 4;
+  string address_line_1 = 5;
+  string pincode = 6;
+  string area_sqft = 7;
+  string deed_document_number = 8;
+  string agreement_value = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+// Request to upsert real-estate details for an application.
+message UpsertLoanRealEstateRequest {
+  string application_id = 1;
+  PropertyType prop_type = 2;
+  PropertyStatus status = 3;
+  string address_line_1 = 4;
+  string pincode = 5;
+  string area_sqft = 6;
+  string deed_document_number = 7;
+  string agreement_value = 8;
+}
+
+// Response containing the upserted real-estate.
+message UpsertLoanRealEstateResponse {
+  LoanRealEstate real_estate = 1;
+}
+
+// An uploaded document against an application's required document slot.
+// verification_status is immutable once changed from PENDING.
+message ApplicationDocument {
+  string id = 1;
+  string application_id = 2;
+  string borrower_profile_id = 3;
+  string required_doc_id = 4;
+  string media_file_id = 5;
+  repeated string quality_flags = 6;
+  DocumentVerificationStatus verification_status = 7;
+  string rejection_reason = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string reviewed_by_user_id = 11;
+  string reviewed_at = 12;
+}
+
+// Request to upload a document against an application.
+message AddApplicationDocumentRequest {
+  string application_id = 1;
+  string borrower_profile_id = 2;
+  string required_doc_id = 3;
+  string media_file_id = 4;
+  repeated string quality_flags = 5;
+  DocumentVerificationStatus verification_status = 6;
+}
+
+// Response containing the added application document.
+message AddApplicationDocumentResponse {
+  ApplicationDocument document = 1;
+}
+
+// Request to verify (pass/fail) an application document.
+// Only the assigned officer or branch manager can change verification status.
+// Once verification_status is changed from PENDING, it cannot be changed again.
+message UpdateApplicationDocumentVerificationRequest {
+  string document_id = 1;
+  DocumentVerificationStatus verification_status = 2;
+  string rejection_reason = 3;
+}
+
+// Response containing the updated document after verification.
+message UpdateApplicationDocumentVerificationResponse {
+  ApplicationDocument document = 1;
+}
+
+// A bureau score entry for a borrower on an application.
+message BureauScore {
+  string id = 1;
+  string borrower_profile_id = 2;
+  string application_id = 3;
+  BureauProvider provider = 4;
+  int32 score = 5;
+  string fetched_at = 6;
+  string expires_at = 7;
+}
+
+// Request to add a bureau score.
+message AddBureauScoreRequest {
+  string borrower_profile_id = 1;
+  string application_id = 2;
+  BureauProvider provider = 3;
+  int32 score = 4;
+  string expires_at = 5;
+}
+
+// Response containing the added bureau score.
+message AddBureauScoreResponse {
+  BureauScore item = 1;
+}
+
+// An active loan created from a fully-approved application.
+message Loan {
+  string id = 1;
+  string application_id = 2;
+  string principal_amount = 3;
+  string interest_rate = 4;
+  string emi_amount = 5;
+  string outstanding_balance = 6;
+  LoanStatus status = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+// Request to create a loan from a manager-approved application.
+// All mandatory required documents must have at least one PASS verification.
+message CreateLoanRequest {
+  string application_id = 1;
+  string principal_amount = 2;
+  reserved 3, 4, 5;
+  reserved "interest_rate", "emi_amount", "outstanding_balance";
+  LoanStatus status = 6;
+}
+
+// Response containing the created loan.
+message CreateLoanResponse {
+  Loan loan = 1;
+}
+
+// Request to get a loan by ID or application ID.
+message GetLoanRequest {
+  string loan_id = 1;
+  string application_id = 2;
+}
+
+// Response containing the loan.
+message GetLoanResponse {
+  Loan loan = 1;
+}
+
+// Request to list loans with pagination.
+message ListLoansRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+// Response containing a paginated list of loans.
+message ListLoansResponse {
+  repeated Loan items = 1;
+}
+
+// A single EMI schedule entry for a loan.
+message EmiScheduleItem {
+  string id = 1;
+  string loan_id = 2;
+  int32 installment_number = 3;
+  string due_date = 4;
+  string emi_amount = 5;
+  EmiStatus status = 6;
+}
+
+// Request to add a single EMI schedule item.
+message AddEmiScheduleItemRequest {
+  string loan_id = 1;
+  int32 installment_number = 2;
+  string due_date = 3;
+  string emi_amount = 4;
+  EmiStatus status = 5;
+}
+
+// Response containing the added EMI schedule item.
+message AddEmiScheduleItemResponse {
+  EmiScheduleItem item = 1;
+}
+
+// Request to list the EMI schedule for a loan.
+message ListEmiScheduleRequest {
+  string loan_id = 1;
+}
+
+// Response containing the EMI schedule.
+message ListEmiScheduleResponse {
+  repeated EmiScheduleItem items = 1;
+}
+
+// A payment recorded against an EMI.
+message Payment {
+  string id = 1;
+  string loan_id = 2;
+  string emi_schedule_id = 3;
+  string amount = 4;
+  string external_transaction_id = 5;
+  PaymentStatus status = 6;
+  string created_at = 7;
+}
+
+// Request to record a payment against an EMI.
+message RecordPaymentRequest {
+  string loan_id = 1;
+  string emi_schedule_id = 2;
+  string amount = 3;
+  string external_transaction_id = 4;
+  PaymentStatus status = 5;
+}
+
+// Response containing the recorded payment.
+message RecordPaymentResponse {
+  Payment payment = 1;
+}
+
+// Request to list payments for a loan.
+message ListPaymentsRequest {
+  string loan_id = 1;
+}
+
+// Response containing a list of payments.
+message ListPaymentsResponse {
+  repeated Payment items = 1;
+}
+
+// Request to reschedule an active loan.
+message RescheduleLoanRequest {
+  string loan_id = 1;
+  int32 new_tenure_months = 2;
+}
+
+// Response containing the updated loan after rescheduling.
+message RescheduleLoanResponse {
+  Loan loan = 1;
+  repeated EmiScheduleItem new_schedule = 2;
+}
+
+// Request to initiate a Razorpay payment.
+message InitiatePaymentRequest {
+  string loan_id = 1;
+  string emi_schedule_id = 2; // Optional, for specific EMI payment
+  string amount = 3;
+}
+
+// Response containing the Razorpay order details.
+message InitiatePaymentResponse {
+  string razorpay_order_id = 1;
+  string amount = 2;
+  string currency = 3;
+}
+
+// Request to verify a Razorpay payment.
+message VerifyPaymentRequest {
+  string razorpay_order_id = 1;
+  string razorpay_payment_id = 2;
+  string razorpay_signature = 3;
+}
+
+// Response for payment verification.
+message VerifyPaymentResponse {
+  bool success = 1;
+  Payment payment = 2;
+}

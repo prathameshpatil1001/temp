@@ -1,0 +1,338 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/chirag3003/lms-monorepo/services/core-api/internal/transport/grpc/generated/authv1;authv1";
+
+service AuthService {
+  rpc Hello(HelloRequest) returns (HelloResponse);
+
+  rpc InitiateSignup(SignupRequest) returns (SignupResponse);
+  rpc VerifySignupOTPs(VerifyOTPsRequest) returns (VerifyOTPsResponse);
+
+  rpc SetupTOTP(SetupTOTPRequest) returns (SetupTOTPResponse);
+  rpc VerifyTOTPSetup(VerifyTOTPSetupRequest) returns (AuthTokens);
+
+  rpc LoginPrimary(LoginRequest) returns (LoginPrimaryResponse);
+  rpc InitiateReopen(InitiateReopenRequest) returns (LoginPrimaryResponse);
+  rpc SelectLoginMFAFactor(SelectLoginMFAFactorRequest) returns (SelectLoginMFAFactorResponse);
+  rpc VerifyLoginMFA(VerifyLoginMFARequest) returns (AuthTokens);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc InitiateForgotPassword(InitiateForgotPasswordRequest) returns (InitiateForgotPasswordResponse);
+  rpc VerifyForgotPasswordOTPs(VerifyForgotPasswordOTPsRequest) returns (VerifyForgotPasswordOTPsResponse);
+  rpc ResetForgotPassword(ResetForgotPasswordRequest) returns (ResetForgotPasswordResponse);
+
+  rpc BeginWebAuthnRegistration(WebAuthnRegRequest) returns (WebAuthnRegResponse);
+  rpc FinishWebAuthnRegistration(WebAuthnFinishRegRequest) returns (AuthTokens);
+  rpc BeginWebAuthnLogin(WebAuthnLoginRequest) returns (WebAuthnLoginResponse);
+  rpc FinishWebAuthnLogin(WebAuthnFinishLoginRequest) returns (AuthTokens);
+
+  rpc GetMyProfile(GetMyProfileRequest) returns (GetMyProfileResponse);
+  rpc GetBorrowerProfile(GetBorrowerProfileRequest) returns (BorrowerProfile);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc GetOfficerProfileByUserID(GetUserRequest) returns (OfficerProfile);
+  rpc GetManagerProfileByUserID(GetUserRequest) returns (ManagerProfile);
+  rpc SearchBorrowerSignupStatus(SearchBorrowerSignupStatusRequest) returns (SearchBorrowerSignupStatusResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (AuthTokens);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+message AuthTokens {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message HelloRequest {
+  string name = 1;
+}
+
+message HelloResponse {
+  string message = 1;
+}
+
+message SignupRequest {
+  string email = 1;
+  string phone = 2;
+  string password = 3;
+}
+
+message GetBorrowerProfileRequest {
+  string userID = 1;
+}
+
+enum UserRole {
+  USER_ROLE_UNSPECIFIED = 0;
+  USER_ROLE_ADMIN = 1;
+  USER_ROLE_MANAGER = 2;
+  USER_ROLE_OFFICER = 3;
+  USER_ROLE_BORROWER = 4;
+  USER_ROLE_DST = 5;
+}
+
+message SignupResponse {
+  string registration_id = 1;
+}
+
+message VerifyOTPsRequest {
+  string registration_id = 1;
+  string email_code = 2;
+  string phone_code = 3;
+}
+
+message VerifyOTPsResponse {
+  bool verified = 1;
+}
+
+message SetupTOTPRequest {}
+
+message SetupTOTPResponse {
+  string secret = 1;
+  string provisioning_uri = 2;
+}
+
+message VerifyTOTPSetupRequest {
+  string code = 1;
+  string device_id = 2;
+}
+
+message LoginRequest {
+  string email_or_phone = 1;
+  string password = 2;
+}
+
+message InitiateReopenRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message LoginPrimaryResponse {
+  string mfa_session_id = 1;
+  repeated string allowed_factors = 2;
+  bool is_requiring_password_change = 3;
+}
+
+message SelectLoginMFAFactorRequest {
+  string mfa_session_id = 1;
+  string factor = 2;
+}
+
+message SelectLoginMFAFactorResponse {
+  bool challenge_sent = 1;
+  string challenge_target = 2;
+  bytes webauthn_request_options = 3;
+}
+
+message VerifyLoginMFARequest {
+  string mfa_session_id = 1;
+  oneof factor {
+    string totp_code = 2;
+    bytes webauthn_assertion = 3;
+    string email_otp_code = 5;
+    string phone_otp_code = 6;
+  }
+  string device_id = 4;
+}
+
+message ChangePasswordRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+}
+
+message InitiateForgotPasswordRequest {
+  string email_or_phone = 1;
+}
+
+message InitiateForgotPasswordResponse {
+  string reset_session_id = 1;
+  bool challenge_sent = 2;
+  string masked_email = 3;
+  string masked_phone = 4;
+}
+
+message VerifyForgotPasswordOTPsRequest {
+  string reset_session_id = 1;
+  string email_code = 2;
+  string phone_code = 3;
+}
+
+message VerifyForgotPasswordOTPsResponse {
+  bool verified = 1;
+}
+
+message ResetForgotPasswordRequest {
+  string reset_session_id = 1;
+  string new_password = 2;
+}
+
+message ResetForgotPasswordResponse {
+  bool success = 1;
+}
+
+message WebAuthnRegRequest {
+  string user_id = 1;
+}
+
+message WebAuthnRegResponse {
+  bytes public_key_credential_creation_options = 1;
+}
+
+message WebAuthnFinishRegRequest {
+  string user_id = 1;
+  bytes credential = 2;
+  string device_id = 3;
+}
+
+message WebAuthnLoginRequest {
+  string user_id = 1;
+}
+
+message WebAuthnLoginResponse {
+  string mfa_session_id = 1;
+  bytes public_key_credential_request_options = 2;
+}
+
+message WebAuthnFinishLoginRequest {
+  string mfa_session_id = 1;
+  bytes assertion = 2;
+  string device_id = 3;
+}
+
+message GetMyProfileRequest {}
+
+message BranchProfile {
+  string branch_id = 1;
+  string name = 2;
+  string region = 3;
+  string city = 4;
+  string dst_commission = 5;
+}
+
+message AdminProfile {
+  string profile_id = 1;
+  string created_at = 2;
+}
+
+message ManagerProfile {
+  string profile_id = 1;
+  string name = 2;
+  BranchProfile branch = 3;
+  string created_at = 4;
+  int64 employee_serial = 5;
+  string employee_code = 6;
+}
+
+message OfficerProfile {
+  string profile_id = 1;
+  string name = 2;
+  BranchProfile branch = 3;
+  string created_at = 4;
+  int64 employee_serial = 5;
+  string employee_code = 6;
+}
+
+message DstProfile {
+  string profile_id = 1;
+  string name = 2;
+  BranchProfile branch = 3;
+  string created_at = 4;
+}
+
+message BorrowerProfile {
+  string profile_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string date_of_birth = 4;
+  string gender = 5;
+  string address_line1 = 6;
+  string city = 7;
+  string state = 8;
+  string pincode = 9;
+  string employment_type = 10;
+  string monthly_income = 11;
+  int32 profile_completeness_percent = 12;
+  bool is_aadhaar_verified = 13;
+  bool is_pan_verified = 14;
+  string aadhaar_verified_at = 15;
+  string pan_verified_at = 16;
+  string created_at = 17;
+  int32 cibil_score = 18;
+}
+
+message GetMyProfileResponse {
+  string user_id = 1;
+  string email = 2;
+  string phone = 3;
+  UserRole role = 4;
+  bool is_email_verified = 5;
+  bool is_phone_verified = 6;
+  bool is_active = 7;
+  bool is_requiring_password_change = 8;
+  bool has_totp = 9;
+  string created_at = 10;
+
+  oneof profile {
+    AdminProfile admin_profile = 20;
+    ManagerProfile manager_profile = 21;
+    OfficerProfile officer_profile = 22;
+    BorrowerProfile borrower_profile = 23;
+    DstProfile dst_profile = 24;
+  }
+}
+
+message SearchBorrowerSignupStatusRequest {
+  string query = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message BorrowerSignupStatusItem {
+  string user_id = 1;
+  string email = 2;
+  string phone = 3;
+  bool is_email_verified = 4;
+  bool is_phone_verified = 5;
+  bool is_active = 6;
+  bool onboarding_completed = 7;
+  bool kyc_completed = 8;
+  string borrower_profile_id = 9;
+  string signup_stage = 10;
+}
+
+message SearchBorrowerSignupStatusResponse {
+  repeated BorrowerSignupStatusItem items = 1;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  string device_id = 2;
+}
+
+message LogoutRequest {
+  string access_token = 1;
+  string refresh_token = 2;
+}
+
+message LogoutResponse {
+  bool success = 1;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message UserPublicProfile {
+  string user_id = 1;
+  string email = 2;
+  string phone = 3;
+  UserRole role = 4;
+  bool is_active = 5;
+  string created_at = 6;
+}
+
+message GetUserResponse {
+  UserPublicProfile user = 1;
+}
