@@ -1,1 +1,0 @@
-ALTER TABLE chat_rooms DROP COLUMN context_application_id;

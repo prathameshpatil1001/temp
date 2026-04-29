@@ -1,1 +1,0 @@
-ALTER TABLE chat_rooms ADD COLUMN context_application_id UUID REFERENCES loan_applications(id) ON DELETE SET NULL;
